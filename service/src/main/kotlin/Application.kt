@@ -44,16 +44,4 @@ fun Application.module() {
 
     healthRoutes()
     configureApiRoutes(deliveryServiceService, productService)
-
-    install(StatusPages) {
-        exception<Throwable> { call, cause ->
-            this@module.environment.log.error("Unhandled error", cause)
-            call.respondText(
-                "Internal server error",
-                status = io.ktor.http.HttpStatusCode.InternalServerError
-            )
-        }
-    }
-
-    healthRoutes()
 }

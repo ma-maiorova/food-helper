@@ -7,6 +7,18 @@ import pandas as pd
 import logging
 
 
+def save_data(data, filename, format='json'):
+    if format == 'json':
+        with open(filename, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    elif format == 'csv':
+        df = pd.DataFrame(data)
+        df.to_csv(filename, index=False, encoding="utf-8")
+    elif format == 'xlsx':
+        df = pd.DataFrame(data)
+        df.to_excel(filename, index=False)
+
+
 def load_data(filename, format="csv") -> list[str]:
     if format == 'csv':
         df = pd.read_csv(filename)

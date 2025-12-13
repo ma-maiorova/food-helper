@@ -1,0 +1,16 @@
+version: "3.9"
+services:
+  postgres:
+    image: postgres:16
+    container_name: food_helper_postgres
+    environment:
+      POSTGRES_DB: food_helper
+      POSTGRES_USER: food_user
+      POSTGRES_PASSWORD: food_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - food_helper_pgdata:/var/lib/postgresql/data
+
+volumes:
+  food_helper_pgdata:

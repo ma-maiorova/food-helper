@@ -1,0 +1,226 @@
+openapi: 3.0.3
+info:
+  title: Food Helper API
+  description: API для работы с продуктами и службами доставки
+  version: 1.0.0
+
+servers:
+  - url: /
+    description: Текущий сервер
+
+paths:
+  /api/v1/delivery-services:
+    get:
+      summary: Список служб доставки
+      description: Возвращает список служб доставки. Можно отфильтровать только активные.
+      operationId: listDeliveryServices
+      parameters:
+        - name: active
+          in: query
+          required: false
+          description: Фильтр по активности (true/false, 1/0)
+          schema:
+            type: string
+            enum: [ "true", "false", "1", "0" ]
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeliveryService'
+
+  /api/v1/products:
+    get:
+      summary: Поиск продуктов
+      description: Поиск продуктов с пагинацией и фильтрами по питательности и службам доставки.
+      operationId: searchProducts
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: Поисковый запрос
+          schema:
+            type: string
+        - name: deliveryServiceIds
+          in: query
+          required: false
+          description: ID служб доставки через запятую
+          schema:
+            type: string
+            example: "1,2"
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: sort
+          in: query
+          required: false
+          description: Сортировка (поле,направление). Поля — name, price; направление — asc, desc
+          schema:
+            type: string
+            example: "name,asc"
+        - name: minCalories
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: maxCalories
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: minProtein
+          in: query
+          required: false
+          schema:
+            type: number
+            format: double
+        - name: maxProtein
+          in: query
+          required: false
+          schema:
+            type: number
+            format: double
+        - name: minFat
+          in: query
+          required: false
+          schema:
+            type: number
+            format: double
+        - name: maxFat
+          in: query
+          required: false
+          schema:
+            type: number
+            format: double
+        - name: minCarbs
+          in: query
+          required: false
+          schema:
+            type: number
+            format: double
+        - name: maxCarbs
+          in: query
+          required: false
+          schema:
+            type: number
+            format: double
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductPage'
+
+components:
+  schemas:
+    DeliveryService:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        code:
+          type: string
+        name:
+          type: string
+        siteUrl:
+          type: string
+          nullable: true
+        logoUrl:
+          type: string
+          nullable: true
+        active:
+          type: boolean
+          default: true
+
+    Product:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        url:
+          type: string
+        price:
+          type: integer
+        currency:
+          type: string
+          default: RUB
+        deliveryService:
+          $ref: '#/components/schemas/DeliveryService'
+        variants:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductVariant'
+
+    ProductVariant:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        manufacturer:
+          type: string
+          nullable: true
+        composition:
+          type: string
+          nullable: true
+        weight:
+          type: integer
+          nullable: true
+        nutrients:
+          $ref: '#/components/schemas/Nutrients'
+
+    Nutrients:
+      type: object
+      properties:
+        calories:
+          type: integer
+          nullable: true
+        protein:
+          type: number
+          format: double
+          nullable: true
+        fat:
+          type: number
+          format: double
+          nullable: true
+        carbs:
+          type: number
+          format: double
+          nullable: true
+
+    ProductPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Product'
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer

@@ -31,6 +31,8 @@ dependencies {
     implementation("io.ktor:ktor-server-call-logging-jvm:$ktorVersion")
     implementation("io.ktor:ktor-server-status-pages-jvm:$ktorVersion")
 
+    implementation("org.webjars:swagger-ui:5.10.3")
+
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
 
     implementation("com.zaxxer:HikariCP:5.1.0")

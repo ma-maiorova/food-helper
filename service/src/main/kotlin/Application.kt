@@ -15,6 +15,7 @@ import org.example.config.DatabaseFactory
 import org.example.repository.impl.DeliveryServiceRepositoryImpl
 import org.example.repository.impl.ProductRepositoryImpl
 import org.example.routes.healthRoutes
+import org.example.routes.swaggerRoutes
 import org.example.service.DeliveryServiceService
 import org.example.service.ProductService
 import org.slf4j.event.Level
@@ -43,5 +44,6 @@ fun Application.module() {
     val productService = ProductService(ProductRepositoryImpl)
 
     healthRoutes()
+    swaggerRoutes()
     configureApiRoutes(deliveryServiceService, productService)
 }

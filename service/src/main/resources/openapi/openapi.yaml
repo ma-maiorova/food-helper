@@ -31,6 +31,32 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/DeliveryService'
+        '400':
+          description: Неверные параметры запроса (формат, тип, диапазон)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                requestId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                code: "VALIDATION_ERROR"
+                message: "Параметры запроса не прошли проверку"
+                status: 400
+                path: "/api/v1/delivery-services"
+                timestamp: "2025-02-21T12:00:00Z"
+                fieldErrors: [{ "field": "active", "message": "must be true or false" }]
+        '422':
+          description: Запрос корректен по формату, но не прошёл бизнес-валидацию
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/v1/products:
     get:
@@ -126,6 +152,33 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProductPage'
+        '400':
+          description: Неверные параметры запроса (формат, тип, диапазон)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                requestId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                code: "VALIDATION_ERROR"
+                message: "Параметры запроса не прошли проверку"
+                status: 400
+                path: "/api/v1/products"
+                timestamp: "2025-02-21T12:00:00Z"
+                details: ["size must be between 1 and 100"]
+                fieldErrors: [{ "field": "size", "message": "must be between 1 and 100" }]
+        '422':
+          description: Запрос корректен по формату, но не прошёл бизнес-валидацию
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
 components:
   schemas:
@@ -224,3 +277,60 @@ components:
           format: int64
         totalPages:
           type: integer
+
+    ErrorResponse:
+      type: object
+      required:
+        - requestId
+        - code
+        - message
+        - status
+        - path
+        - timestamp
+      properties:
+        requestId:
+          type: string
+          description: Идентификатор запроса (корреляция в логах), UUID
+        code:
+          type: string
+          enum:
+            - VALIDATION_ERROR
+            - BUSINESS_VALIDATION_ERROR
+            - NOT_FOUND
+            - DB_ERROR
+            - INTERNAL_ERROR
+        message:
+          type: string
+          description: Человекочитаемое описание ошибки
+        status:
+          type: integer
+          description: HTTP-статус (400, 404, 422, 500)
+        path:
+          type: string
+          description: Путь запроса
+        timestamp:
+          type: string
+          format: date-time
+        details:
+          type: array
+          items:
+            type: string
+          description: Дополнительные сообщения
+        fieldErrors:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldError'
+          description: Ошибки по полям ввода (для подсветки в UI)
+
+    FieldError:
+      type: object
+      required:
+        - field
+        - message
+      properties:
+        field:
+          type: string
+          description: Имя параметра/поля
+        message:
+          type: string
+          description: Сообщение об ошибке для поля

@@ -18,6 +18,14 @@ application {
     mainClass.set("org.example.ApplicationKt")
 }
 
+// Запуск только миграций Liquibase (без API). Требует DB_JDBC_URL, DB_USER, DB_PASSWORD в env.
+tasks.register<JavaExec>("runMigrations") {
+    group = "application"
+    description = "Выполняет миграции Liquibase. Нужны: DB_JDBC_URL, DB_USER, DB_PASSWORD"
+    mainClass.set("org.example.db.RunLiquibaseKt")
+    classpath = sourceSets.main.get().runtimeClasspath
+}
+
 val ktorVersion = "2.3.7"
 val exposedVersion = "0.53.0"
 

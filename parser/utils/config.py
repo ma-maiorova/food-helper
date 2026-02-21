@@ -97,6 +97,26 @@ data = {
     }
 }
 
+BASE_LINK_LAVKA = "https://lavka.yandex.ru/"
+data_lavka = {
+    "sections": {
+        "Закуски": {"url": BASE_LINK_LAVKA + "catalog/technical/category/all_ready_meals/zakuski-12",
+                    "enabled": True},
+        "Бургеры": {"url": BASE_LINK_LAVKA + "catalog/technical/category/all_ready_meals/burgery-i-hot-dogi-3",
+                    "enabled": True},
+        "Сэндвичи": {"url": BASE_LINK_LAVKA + "catalog/technical/category/all_ready_meals/sendvichi-10",
+                     "enabled": True},
+        "Салаты": {"url": BASE_LINK_LAVKA + "catalog/technical/category/all_ready_meals/salaty-4",
+                   "enabled": True},
+        "Супы": {"url": BASE_LINK_LAVKA + "catalog/technical/category/all_ready_meals/supy-24",
+                 "enabled": True},
+        "Вторые блюда": {"url": BASE_LINK_LAVKA + "catalog/technical/category/all_ready_meals/vtorye-blyuda-5",
+                         "enabled": True},
+        "Котлеты": {"url": BASE_LINK_LAVKA + "catalog/technical/category/all_ready_meals/kotlety-4",
+                    "enabled": True},
+    }
+}
+
 
 def get_section_links(data: dict) -> list:
     links = []

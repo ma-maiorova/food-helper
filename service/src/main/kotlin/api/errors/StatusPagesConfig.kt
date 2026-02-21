@@ -6,6 +6,7 @@ import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.request.path
 import io.ktor.server.response.*
 import org.example.api.dto.ErrorResponse
+import org.example.config.requestId
 import java.time.Instant
 
 fun Application.installApiStatusPages() {
@@ -15,28 +16,31 @@ fun Application.installApiStatusPages() {
             call.respond(
                 cause.status,
                 ErrorResponse(
-                    timestamp = Instant.now().toString(),
-                    status = cause.status.value,
-                    error = cause.status.description,
+                    requestId = call.requestId(),
                     code = cause.code,
                     message = cause.message,
-                    path = call.request.path()
+                    status = cause.status.value,
+                    path = call.request.path(),
+                    timestamp = Instant.now().toString(),
+                    details = cause.details,
+                    fieldErrors = cause.fieldErrors
                 )
             )
         }
 
         exception<Throwable> { call, cause ->
-            call.application.environment.log.error("Unhandled error", cause)
+            val requestId = call.requestId()
+            call.application.environment.log.error("requestId=$requestId path=${call.request.path()} error=${cause.message}", cause)
 
             call.respond(
                 HttpStatusCode.InternalServerError,
                 ErrorResponse(
-                    timestamp = Instant.now().toString(),
-                    status = 500,
-                    error = "Internal Server Error",
+                    requestId = call.requestId(),
                     code = "INTERNAL_ERROR",
-                    message = "Unexpected error",
-                    path = call.request.path()
+                    message = "Внутренняя ошибка сервера",
+                    status = 500,
+                    path = call.request.path(),
+                    timestamp = Instant.now().toString()
                 )
             )
         }

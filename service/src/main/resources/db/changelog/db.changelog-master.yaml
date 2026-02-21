@@ -3,3 +3,5 @@ databaseChangeLog:
       file: db/changelog/changes/001_init.yaml
   - include:
       file: db/changelog/changes/002_seed.yaml
+  - include:
+      file: db/changelog/changes/003_indexes_search_and_nutrients.yaml

@@ -16,11 +16,16 @@ object DatabaseFactory {
     fun init(environment: ApplicationEnvironment) {
         val cfg = environment.config
 
+        val jdbcUrl = System.getenv("DB_JDBC_URL")
+            ?: cfg.property("ktor.database.jdbcUrl").getString()
+        val username = System.getenv("DB_USER") ?: cfg.property("ktor.database.username").getString()
+        val password = System.getenv("DB_PASSWORD") ?: cfg.property("ktor.database.password").getString()
+
         val dbConfig = DatabaseConfig(
-            jdbcUrl = cfg.property("ktor.database.jdbcUrl").getString(),
+            jdbcUrl = jdbcUrl,
             driverClassName = cfg.property("ktor.database.driverClassName").getString(),
-            username = cfg.property("ktor.database.username").getString(),
-            password = cfg.property("ktor.database.password").getString(),
+            username = username,
+            password = password,
             maximumPoolSize = cfg.propertyOrNull("ktor.database.maximumPoolSize")?.getString()?.toInt() ?: 10
         )
 

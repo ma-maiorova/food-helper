@@ -1,16 +1,58 @@
-version: "3.9"
+# Dev-режим: postgres + api. Позже можно добавить loader.
+# Запуск: из каталога service выполнить
+#   docker compose --env-file .env up -d
+# или
+#   docker compose up -d
+# (без .env будут использованы значения по умолчанию ниже)
+
 services:
   postgres:
-    image: postgres:16
+    image: postgres:16-alpine
     container_name: food_helper_postgres
     environment:
-      POSTGRES_DB: food_helper
-      POSTGRES_USER: food_user
-      POSTGRES_PASSWORD: food_pass
+      POSTGRES_DB: ${POSTGRES_DB:-food_helper}
+      POSTGRES_USER: ${POSTGRES_USER:-food_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-food_pass}
     ports:
-      - "5435:5432"
+      - "${POSTGRES_PORT:-5435}:5432"
     volumes:
       - food_helper_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-food_user} -d ${POSTGRES_DB:-food_helper}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: food_helper_api
+    env_file:
+      - .env
+    environment:
+      DB_JDBC_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-food_helper}
+      DB_USER: ${POSTGRES_USER:-food_user}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-food_pass}
+    ports:
+      - "${API_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  # loader:
+  #   build: ...
+  #   depends_on: [postgres, api]
+  #   ...
 
 volumes:
   food_helper_pgdata:

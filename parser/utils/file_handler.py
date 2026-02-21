@@ -25,7 +25,7 @@ def load_data(filename, format="csv") -> list[str]:
         return df['0'].values
 
 
-def save_products(logger: logging.Logger, products: Iterable, filepath: str, file_format: str = "csv"):
+def save_products(products: Iterable, filepath: str, file_format: str = "csv"):
     filepath = Path(filepath)
     file_format = file_format or filepath.suffix.replace(".", "").lower()
 

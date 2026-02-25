@@ -27,3 +27,4 @@ class ProductItem:
     url: str
     price: int
     variants: list[ProductVariant] = field(default_factory=list)
+    delivery: str = ""

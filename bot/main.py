@@ -4,25 +4,15 @@ from aiogram.types import BotCommand
 from aiogram.client.default import DefaultBotProperties
 import asyncio
 
-from config import TOKEN
-from handlers.start import router as start_router
-from handlers.filters import router as filters_router
-from handlers.products import router as products_router
-from handlers.pagination import router as pagination_router
+from handlers import start, filters, products, pagination
 
-bot = Bot(
-    token=TOKEN,
-    default=DefaultBotProperties(parse_mode=ParseMode.HTML)
-)
-dp = Dispatcher()
+from config import settings
+from logging_config import setup_logging
 
-dp.include_router(start_router)
-dp.include_router(filters_router)
-dp.include_router(products_router)
-dp.include_router(pagination_router)
+import logging
 
 
-async def on_startup(bot: Bot):
+async def set_commands(bot: Bot):
     await bot.set_my_commands([
         BotCommand(command="start", description="Запуск"),
         BotCommand(command="filters", description="Фильтры КБЖУ"),
@@ -30,7 +20,23 @@ async def on_startup(bot: Bot):
 
 
 async def main():
-    await on_startup(bot)
+    setup_logging()
+    logger = logging.getLogger(__name__)
+
+    bot = Bot(token=settings.bot_token,
+              default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+
+    dp = Dispatcher()
+
+    dp.include_router(start.router)
+    dp.include_router(filters.router)
+    dp.include_router(products.router)
+    dp.include_router(pagination.router)
+
+    await set_commands(bot)
+
+    logger.info("Bot started!")
+
     await dp.start_polling(bot)
 
 

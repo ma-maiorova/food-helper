@@ -22,7 +22,7 @@ class ProductService:
             for row in reader:
                 url = row["url"].strip()
                 name = row["name"].strip()
-                price = int(row["price"])
+                price = float(row["price"])
 
                 nutrients = Nutrients(
                     calories=self._to_num(row.get("calories")),

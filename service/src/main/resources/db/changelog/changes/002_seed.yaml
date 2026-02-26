@@ -1,7 +1,12 @@
 databaseChangeLog:
   - changeSet:
       id: 002-test-data
-      author: ezik
+      author: ma-maiorova
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: 0
+            sql: "SELECT COUNT(*) FROM delivery_service WHERE code='YANDEX_EATS'"
       changes:
         - insert:
             tableName: delivery_service

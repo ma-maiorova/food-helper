@@ -5,7 +5,6 @@ import org.example.domain.DeliveryService
 import org.example.repository.DeliveryServiceRepository
 import org.example.repository.DeliveryServicesTable
 import org.jetbrains.exposed.sql.ResultRow
-import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.selectAll
 
 object DeliveryServiceRepositoryImpl : DeliveryServiceRepository {
@@ -20,7 +19,8 @@ object DeliveryServiceRepositoryImpl : DeliveryServiceRepository {
     override suspend fun findById(id: Long): DeliveryService? =
         DatabaseFactory.dbQuery {
             DeliveryServicesTable
-                .select { DeliveryServicesTable.id eq id }
+                .selectAll()
+                .where { DeliveryServicesTable.id eq id }
                 .limit(1)
                 .firstOrNull()
                 ?.toDomain()

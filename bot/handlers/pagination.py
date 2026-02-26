@@ -1,4 +1,4 @@
-from aiogram import Router, types
+from aiogram import Router
 from aiogram.types import CallbackQuery
 from aiogram.fsm.context import FSMContext
 from keyboards.pagination_kb import pagination_kb

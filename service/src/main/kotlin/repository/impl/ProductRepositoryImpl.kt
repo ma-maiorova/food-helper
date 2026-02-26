@@ -19,18 +19,21 @@ object ProductRepositoryImpl : ProductRepository {
     override suspend fun findById(id: Long): Product? =
         DatabaseFactory.dbQuery {
             val productRow = ProductsTable
-                .select { ProductsTable.id eq id }
+                .selectAll()
+                .where { ProductsTable.id eq id }
                 .limit(1)
                 .firstOrNull()
                 ?: return@dbQuery null
 
             val serviceRow = DeliveryServicesTable
-                .select { DeliveryServicesTable.id eq productRow[ProductsTable.deliveryServiceId] }
+                .selectAll()
+                .where { DeliveryServicesTable.id eq productRow[ProductsTable.deliveryServiceId] }
                 .limit(1)
                 .first()
 
             val variantRows = ProductVariantsTable
-                .select { ProductVariantsTable.productId eq id }
+                .selectAll()
+                .where { ProductVariantsTable.productId eq id }
                 .toList()
 
             val service = serviceRow.toDeliveryService()
@@ -53,12 +56,13 @@ object ProductRepositoryImpl : ProductRepository {
 
             val totalCountExpr = ProductsTable.id.count()
             val totalElements = ProductsTable
-                .slice(totalCountExpr)
-                .select { whereOp }
+                .select(totalCountExpr)
+                .where { whereOp }
                 .first()[totalCountExpr]
 
             var query: Query = (ProductsTable innerJoin DeliveryServicesTable)
-                .select { whereOp }
+                .selectAll()
+                .where { whereOp }
 
             val order = buildOrderBy(criteria)
             if (order != null) {
@@ -87,7 +91,8 @@ object ProductRepositoryImpl : ProductRepository {
             val variantsWhere = buildVariantWhere(criteria, productIds)
 
             val variantRows = ProductVariantsTable
-                .select { variantsWhere }
+                .selectAll()
+                .where { variantsWhere }
                 .toList()
 
             val variantsByProductId = variantRows.groupBy { it[ProductVariantsTable.productId] }
@@ -131,8 +136,8 @@ object ProductRepositoryImpl : ProductRepository {
         if (criteria.hasNutrientFilters()) {
             val variantCond = buildVariantNutrientsOnlyWhere(criteria)
             val subQuery = ProductVariantsTable
-                .slice(ProductVariantsTable.productId)
-                .select { variantCond }
+                .select(ProductVariantsTable.productId)
+                .where { variantCond }
                 .withDistinct()
 
             conditions += (ProductsTable.id inSubQuery subQuery)

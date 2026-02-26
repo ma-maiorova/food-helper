@@ -5,3 +5,7 @@ databaseChangeLog:
       file: db/changelog/changes/002_seed.yaml
   - include:
       file: db/changelog/changes/003_indexes_search_and_nutrients.yaml
+  - include:
+      file: db/changelog/changes/004_replace_delivery_club_with_vkusvill.yaml
+  - include:
+      file: db/changelog/changes/005_seed_vkusvill.yaml

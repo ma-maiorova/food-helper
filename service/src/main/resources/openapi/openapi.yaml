@@ -12,13 +12,14 @@ paths:
   /api/v1/delivery-services:
     get:
       summary: Список служб доставки
-      description: Возвращает список служб доставки. Можно отфильтровать только активные.
+      description: |
+        Возвращает список служб доставки. Все параметры необязательные.
       operationId: listDeliveryServices
       parameters:
         - name: active
           in: query
           required: false
-          description: Фильтр по активности (true/false, 1/0)
+          description: Фильтр по активности служб (true/false, 1/0). Необязательный.
           schema:
             type: string
             enum: [ "true", "false", "1", "0" ]
@@ -61,25 +62,28 @@ paths:
   /api/v1/products:
     get:
       summary: Поиск продуктов
-      description: Поиск продуктов с пагинацией и фильтрами по питательности и службам доставки.
+      description: |
+        Поиск продуктов с пагинацией и фильтрами по питательности и службам доставки.
+        Все параметры необязательные.
       operationId: searchProducts
       parameters:
         - name: q
           in: query
           required: false
-          description: Поисковый запрос
+          description: Поисковый запрос по названию. Необязательный.
           schema:
             type: string
         - name: deliveryServiceIds
           in: query
           required: false
-          description: ID служб доставки через запятую
+          description: ID служб доставки через запятую (например 1,2). Необязательный.
           schema:
             type: string
             example: "1,2"
         - name: page
           in: query
           required: false
+          description: Номер страницы (с 0). Необязательный.
           schema:
             type: integer
             default: 0
@@ -87,6 +91,7 @@ paths:
         - name: size
           in: query
           required: false
+          description: Количество продуктов на странице (1–100). Необязательный.
           schema:
             type: integer
             default: 20
@@ -95,53 +100,61 @@ paths:
         - name: sort
           in: query
           required: false
-          description: Сортировка (поле,направление). Поля — name, price; направление — asc, desc
+          description: Сортировка — поле,направление (name/price, asc/desc). Необязательный.
           schema:
             type: string
             example: "name,asc"
         - name: minCalories
           in: query
           required: false
+          description: Минимальные калории. Необязательный.
           schema:
             type: integer
         - name: maxCalories
           in: query
           required: false
+          description: Максимальные калории. Необязательный.
           schema:
             type: integer
         - name: minProtein
           in: query
           required: false
+          description: Минимальный белок (г). Необязательный.
           schema:
             type: number
             format: double
         - name: maxProtein
           in: query
           required: false
+          description: Максимальный белок (г). Необязательный.
           schema:
             type: number
             format: double
         - name: minFat
           in: query
           required: false
+          description: Минимальный жир (г). Необязательный.
           schema:
             type: number
             format: double
         - name: maxFat
           in: query
           required: false
+          description: Максимальный жир (г). Необязательный.
           schema:
             type: number
             format: double
         - name: minCarbs
           in: query
           required: false
+          description: Минимальные углеводы (г). Необязательный.
           schema:
             type: number
             format: double
         - name: maxCarbs
           in: query
           required: false
+          description: Максимальные углеводы (г). Необязательный.
           schema:
             type: number
             format: double

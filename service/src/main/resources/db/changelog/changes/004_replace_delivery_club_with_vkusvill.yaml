@@ -1,0 +1,13 @@
+# Замена службы доставки Delivery Club на Вкусвилл (для БД, где уже применён 002 с DELIVERY_CLUB)
+databaseChangeLog:
+  - changeSet:
+      id: 004-delivery-club-to-vkusvill
+      author: ma-maiorova
+      changes:
+        - update:
+            tableName: delivery_service
+            columns:
+              - column: { name: code, value: "VKUSVILL" }
+              - column: { name: name, value: "Вкусвилл" }
+              - column: { name: site_url, value: "https://vkusvill.ru" }
+            where: "code='DELIVERY_CLUB'"

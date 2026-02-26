@@ -2,7 +2,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 
 def get_deliveries_kb(current_deliveries: dict) -> InlineKeyboardMarkup:
-    CHOICE_MAP = [" ", "✅"]
+    CHOICE_MAP = ["✅", " "]
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [

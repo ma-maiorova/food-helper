@@ -71,6 +71,6 @@ async def search_products_handler(callback: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(F.data == "/delivery")
-async def filters_handler(callback: CallbackQuery):
-    await cmd_delivery(callback.message)
-    await callback.answer()
+async def delivery_handler(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    await cmd_delivery(callback.message, data.get("deliveries", {}))

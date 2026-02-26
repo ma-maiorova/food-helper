@@ -15,12 +15,12 @@ async def cmd_start(msg: types.Message):
 
 
 @router.message(F.text == "/filters")
-async def cmd_filters(msg: types.Message):
+async def cmd_filters(msg: types.Message, filters={}):
     await msg.answer("Выберите параметры фильтра:",
-                     reply_markup=get_filters_kb({}))
+                     reply_markup=get_filters_kb(filters))
 
 
 @router.message(F.text == "/delivery")
-async def cmd_delivery(msg: types.Message):
+async def cmd_delivery(msg: types.Message, delivery={}):
     await msg.answer("Выберите сервис с продуктами готовой еды:",
-                     reply_markup=get_deliveries_kb({}))
+                     reply_markup=get_deliveries_kb(delivery))

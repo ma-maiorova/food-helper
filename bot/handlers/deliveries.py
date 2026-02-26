@@ -8,9 +8,10 @@ router = Router()
 
 
 @router.callback_query(F.data == "/filters")
-async def filters_handler(callback: CallbackQuery):
-    await cmd_filters(callback.message)
-    await callback.answer()
+async def filters_handler(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    filters = data.get("filters", {})
+    await cmd_filters(callback.message, filters)
 
 
 @router.callback_query(F.data.startswith("choice_"))
@@ -33,8 +34,8 @@ async def set_delivery(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == "select_all")
 async def select_all(callback: CallbackQuery, state: FSMContext):
     current_deliveries = {
-        "vkusvill": 1,
-        "lavka": 1,
+        "vkusvill": 0,
+        "lavka": 0,
     }
 
     await state.update_data(deliveries=current_deliveries)
@@ -49,8 +50,8 @@ async def select_all(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == "clear_all")
 async def clear_all(callback: CallbackQuery, state: FSMContext):
     current_deliveries = {
-        "vkusvill": 0,
-        "lavka": 0,
+        "vkusvill": 1,
+        "lavka": 1,
     }
 
     await state.update_data(deliveries=current_deliveries)

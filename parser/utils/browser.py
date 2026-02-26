@@ -19,7 +19,7 @@ def get_driver(logger, headless: bool = False):
     options.add_argument("--disable-infobars")
     options.add_argument("--lang=ru-RU")
 
-    driver = uc.Chrome(options=options)
+    driver = uc.Chrome(options=options, version_main=145)
     driver.set_page_load_timeout(30)
     logger.info("Драйвер успешно работает")
     return driver

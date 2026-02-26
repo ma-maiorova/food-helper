@@ -1,0 +1,17 @@
+# Продукты Вкусвилл из out.csv. Продукты вставляются идемпотентно (WHERE NOT EXISTS по url).
+# Варианты вставляются при первом проходе; при повторном запуске changeset помечается как выполненный (preCondition).
+databaseChangeLog:
+  - changeSet:
+      id: 005-seed-vkusvill-from-csv
+      author: ma-maiorova
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: 0
+            sql: "SELECT COUNT(*) FROM product WHERE url LIKE 'https://vkusvill.ru%'"
+      changes:
+        - sqlFile:
+            path: 005_seed_vkusvill.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+      comment: Продукты и варианты из out.csv (Вкусвилл)

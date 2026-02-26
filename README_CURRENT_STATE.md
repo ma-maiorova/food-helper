@@ -20,8 +20,7 @@
 | Метод | Путь | Назначение |
 |-------|------|------------|
 | **GET** | `/health` | Проверка живости сервиса (для healthcheck). Ответ: `{ "status": "OK", "timestamp": "..." }`. |
-| **GET** | `/swagger` | Редирект на Swagger UI с подставленной OpenAPI-спекой. |
-| **GET** | `/swagger-ui/` | Статика Swagger UI (в т.ч. `index.html`). |
+| **GET** | `/swagger` | Редирект на Swagger UI (статика по `/swagger/`). |
 | **GET** | `/openapi/openapi.yaml` | Спецификация OpenAPI в YAML. |
 | **GET** | `/api/v1/delivery-services` | Список служб доставки. |
 | **GET** | `/api/v1/products` | Поиск продуктов с пагинацией и фильтрами по КБЖУ и службам. |
@@ -62,43 +61,47 @@
 
 ---
 
-## Как запускать
+## Как запускать (Docker Compose)
 
-### Вариант 1: Всё в Docker (dev)
+Запуск окружения — через **Docker Compose** из каталога `service/`.
+
+### 1. Подготовка
 
 ```bash
 cd service
-cp .env.example .env   # при необходимости отредактировать
+cp .env.example .env
+```
+
+При необходимости отредактируйте `.env` (порты, пароль БД).
+
+### 2. Запуск
+
+```bash
 docker compose --env-file .env up -d
 ```
 
-- Postgres: порт по умолчанию **5435** (или `POSTGRES_PORT` в `.env`).
-- API: порт **8080** (или `API_PORT` в `.env`).
-- После старта: Swagger — **http://localhost:8080/swagger**, health — **http://localhost:8080/health**.
+Поднимаются **postgres** (порт по умолчанию **5435**) и **api** (порт **8080**). Миграции Liquibase выполняются при старте API.
 
-### Вариант 2: Только Postgres в Docker, API локально
+### 3. Проверка
+
+- Swagger UI: **http://localhost:8080/swagger**
+- Health: **http://localhost:8080/health**
+
+### 4. Остановка и пересборка
 
 ```bash
-cd service
+docker compose down
+docker compose build --no-cache
+docker compose --env-file .env up -d
+```
+
+### Только Postgres в Docker, API локально
+
+```bash
 docker compose up -d postgres
 ```
 
-В `.env` указать подключение к локальному порту Postgres, например:
-
-```bash
-DB_JDBC_URL=jdbc:postgresql://127.0.0.1:5435/food_helper
-DB_USER=food_user
-DB_PASSWORD=food_pass
-```
-
-Запуск API:
-
-```bash
-./gradlew run
-# или из IDE: main class org.example.ApplicationKt
-```
-
-Порт API по умолчанию — **8080** (в `service/src/main/resources/application.conf` или через переменные окружения, если заданы).
+В `.env` укажите `DB_JDBC_URL=jdbc:postgresql://127.0.0.1:5435/food_helper`, затем запуск API: `./gradlew run` (порт 8080).
 
 ### Сборка и тесты
 
@@ -108,9 +111,9 @@ cd service
 ./gradlew test
 ```
 
-### Запуск миграций Liquibase (без API)
+### Миграции отдельно
 
-Миграции выполняются автоматически при старте API. Чтобы применить их отдельно (например, в CI или перед запуском другой версии приложения):
+Миграции применяются при старте API. Для ручного запуска (CI и т.п.):
 
 ```bash
 cd service
@@ -120,7 +123,7 @@ export DB_PASSWORD=food_pass
 ./gradlew runMigrations
 ```
 
-Либо передать переменные в одну строку: `DB_JDBC_URL=... DB_USER=... DB_PASSWORD=... ./gradlew runMigrations`.
+**Важно:** если в `.env` указан хост `postgres:5432` (для контейнера API), с хоста `./gradlew runMigrations` не подключится. Используйте переменные выше или в `.env` для локального запуска — `DB_JDBC_URL=jdbc:postgresql://127.0.0.1:5435/food_helper`.
 
 ---
 

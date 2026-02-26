@@ -1,10 +1,12 @@
 from aiogram.fsm.context import FSMContext
-from aiogram import Router
+from aiogram import F, Router
 from aiogram.types import CallbackQuery
 from handlers.products import show_products
 from keyboards.filters_kb import get_filters_kb
 from services.product_service import ProductService
 from states.filter_states import FilterStates
+
+from handlers.start import cmd_delivery
 
 service = ProductService("data/products.csv")
 router = Router()
@@ -66,3 +68,9 @@ async def search_products_handler(callback: CallbackQuery, state: FSMContext):
         await state.update_data(filtered_products=products)
         await show_products(callback.message, products, page=0)
         await callback.answer()
+
+
+@router.callback_query(F.data == "/delivery")
+async def filters_handler(callback: CallbackQuery):
+    await cmd_delivery(callback.message)
+    await callback.answer()

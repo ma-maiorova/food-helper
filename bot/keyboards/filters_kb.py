@@ -22,6 +22,10 @@ def get_filters_kb(current_filters: dict) -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton(
+                text="Настроить сервисы доставки", callback_data="/delivery"),
+        ],
+        [
+            InlineKeyboardButton(
                 text="🔍 Поиск", callback_data="search_products")
         ]
     ])

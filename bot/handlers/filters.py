@@ -70,6 +70,17 @@ async def search_products_handler(callback: CallbackQuery, state: FSMContext):
         await callback.answer()
 
 
+@router.callback_query(F.data == "clear_filters")
+async def clear_filters_handler(callback: CallbackQuery, state: FSMContext):
+    await state.update_data(filters={})
+
+    await callback.message.edit_reply_markup(
+        reply_markup=get_filters_kb({})
+    )
+
+    await callback.answer()
+
+
 @router.callback_query(F.data == "/delivery")
 async def delivery_handler(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()

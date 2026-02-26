@@ -73,3 +73,6 @@ log/
 *.pid.lock
 .npm
 .node_repl_history
+
+README_CURRENT_STATE.md
+service/out.csv

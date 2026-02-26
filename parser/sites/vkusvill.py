@@ -90,7 +90,8 @@ class VkusvillParser(BaseParser):
                 name=self._get_name(),
                 url=url,
                 price=self._get_price(),
-                variants=self._extract_nutrients()
+                variants=self._extract_nutrients(),
+                shop="vkusvill"
             )
             logger.info(f"Обработан: {card.name}")
             return card

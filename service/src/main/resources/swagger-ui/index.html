@@ -3,22 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <title>Food Helper API — Swagger UI</title>
-  <link rel="stylesheet" href="https://unpkg.com/swagger-ui@5.9.0/swagger-ui.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui.css">
 </head>
 <body>
-  <div id="swagger-ui"></div>
-  <script src="https://unpkg.com/swagger-ui@5.9.0/swagger-ui-bundle.js"></script>
-  <script>
-    window.onload = function() {
-      window.ui = SwaggerUIBundle({
-        url: "/openapi/openapi.yaml",
-        dom_id: "#swagger-ui",
-        presets: [
-          SwaggerUIBundle.presets.apis,
-          SwaggerUIBundle.SwaggerUIStandalonePreset
-        ]
-      });
-    };
-  </script>
+<div id="swagger-ui"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui-bundle.js"></script>
+<script>
+  window.onload = function() {
+    SwaggerUIBundle({
+      url: "/openapi/openapi.yaml",
+      dom_id: "#swagger-ui",
+    });
+  };
+</script>
 </body>
 </html>

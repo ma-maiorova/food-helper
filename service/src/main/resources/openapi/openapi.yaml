@@ -59,6 +59,118 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/v1/admin/delivery-services:
+    post:
+      summary: Создать службу доставки (админ)
+      description: Добавляет новую службу доставки. Код должен быть уникальным.
+      operationId: createDeliveryService
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDeliveryServiceRequest'
+      responses:
+        '201':
+          description: Служба доставки создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryService'
+        '400':
+          description: Неверные параметры запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Бизнес-ошибка (например, код уже существует)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/admin/delivery-services/{id}:
+    put:
+      summary: Обновить службу доставки (админ)
+      description: Обновляет поля службы доставки. Передаются только изменяемые поля (null = не менять).
+      operationId: updateDeliveryService
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDeliveryServiceRequest'
+      responses:
+        '200':
+          description: Служба доставки обновлена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryService'
+        '400':
+          description: Неверные параметры запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Служба доставки не найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      summary: Удалить службу доставки (админ)
+      description: Удаляет службу доставки. Нельзя удалить, если есть связанные продукты.
+      operationId: deleteDeliveryService
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Служба доставки удалена
+        '404':
+          description: Служба доставки не найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Невозможно удалить (есть связанные продукты)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/v1/products:
     get:
       summary: Поиск продуктов
@@ -195,6 +307,43 @@ paths:
 
 components:
   schemas:
+    CreateDeliveryServiceRequest:
+      type: object
+      required:
+        - code
+        - name
+      properties:
+        code:
+          type: string
+          description: Уникальный код службы (до 64 символов)
+        name:
+          type: string
+          description: Название службы
+        siteUrl:
+          type: string
+          nullable: true
+        logoUrl:
+          type: string
+          nullable: true
+        active:
+          type: boolean
+          default: true
+
+    UpdateDeliveryServiceRequest:
+      type: object
+      description: Все поля необязательные (null = не менять)
+      properties:
+        name:
+          type: string
+        siteUrl:
+          type: string
+          nullable: true
+        logoUrl:
+          type: string
+          nullable: true
+        active:
+          type: boolean
+
     DeliveryService:
       type: object
       properties:

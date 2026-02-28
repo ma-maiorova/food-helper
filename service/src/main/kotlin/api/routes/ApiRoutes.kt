@@ -13,6 +13,7 @@ fun Application.configureApiRoutes(
         route("/api/v1") {
             deliveryServiceRoutes(deliveryServiceService)
             productRoutes(productService)
+            adminDeliveryServiceRoutes(deliveryServiceService)
         }
     }
 }

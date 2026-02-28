@@ -50,7 +50,7 @@ fun Application.module() {
     }
 
     installApiStatusPages()
-    val deliveryServiceService = DeliveryServiceService(DeliveryServiceRepositoryImpl)
+    val deliveryServiceService = DeliveryServiceService(DeliveryServiceRepositoryImpl, ProductRepositoryImpl)
     val productService = ProductService(ProductRepositoryImpl)
 
     healthRoutes()

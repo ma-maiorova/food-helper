@@ -24,12 +24,21 @@
 | **GET** | `/openapi/openapi.yaml` | Спецификация OpenAPI в YAML. |
 | **GET** | `/api/v1/delivery-services` | Список служб доставки. |
 | **GET** | `/api/v1/products` | Поиск продуктов с пагинацией и фильтрами по КБЖУ и службам. |
+| **POST** | `/api/v1/admin/delivery-services` | Создать службу доставки (админ). |
+| **PUT** | `/api/v1/admin/delivery-services/{id}` | Обновить службу доставки (админ). |
+| **DELETE** | `/api/v1/admin/delivery-services/{id}` | Удалить службу доставки (админ). |
 
 ### GET /api/v1/delivery-services
 
 - **Параметры:**  
   - `active` (query, необязательный) — фильтр по активности: `true`/`false` или `1`/`0`.
 - **Ответ:** массив объектов служб доставки (id, code, name, siteUrl, logoUrl, active).
+
+### Админ: службы доставки
+
+- **POST /api/v1/admin/delivery-services** — создание службы. Тело: `{ "code", "name", "siteUrl?", "logoUrl?", "active?" }`. Ответ 201 + объект службы.
+- **PUT /api/v1/admin/delivery-services/{id}** — обновление (все поля в теле необязательные, null = не менять). Ответ 200 + объект службы.
+- **DELETE /api/v1/admin/delivery-services/{id}** — удаление. Ответ 204. Нельзя удалить службу, у которой есть связанные продукты (422).
 
 ### GET /api/v1/products
 
@@ -58,6 +67,45 @@
 - Индексы БД: по доставке, по поиску названия (pg_trgm/GIN), составные по КБЖУ (см. миграцию 003).
 
 Не готово: Telegram-бот, загрузчик данных (loader), продакшен-деплой, авторизация.
+
+---
+
+## Индексы БД и поиск
+
+### Индексы (миграции 001 и 003)
+
+| Индекс | Таблица | Назначение |
+|--------|---------|------------|
+| **idx_product_delivery_service** | product | Фильтр по `delivery_service_id` (ручка продуктов с `deliveryServiceIds`). |
+| **idx_product_name** | product | B-tree по `name` — сортировка и префиксный поиск. |
+| **idx_product_name_lower_gin** | product | GIN по `lower(name)` с **pg_trgm** — поиск подстроки по названию без полного скана (`LOWER(name) LIKE '%...%'`). |
+| **idx_variant_calories**, **idx_variant_protein**, **idx_variant_fat**, **idx_variant_carbs** | product_variant | Одиночные B-tree по полям КБЖУ (миграция 001). |
+| **idx_variant_product_calories** | product_variant | Составной `(product_id, calories)` — выбор вариантов по продукту с фильтром по калориям. |
+| **idx_variant_calories_protein** | product_variant | Составной `(calories, protein)` — частые фильтры по диапазонам калорий и белка. |
+| **idx_variant_calories_fat** | product_variant | Составной `(calories, fat)` — фильтры по калориям и жирам. |
+
+Для поиска по подстроке в названии используется расширение **pg_trgm** (триграммы). Оно создаётся в миграции 003 и позволяет эффективно выполнять `LIKE '%слово%'` и `ILIKE` по полю `lower(name)` через GIN-индекс, без полного перебора строк.
+
+### Как выполняется поиск по БД (GET /api/v1/products)
+
+1. **Парсинг параметров**  
+   В `parseProductSearchCriteria` из query-строки берутся `q`, `deliveryServiceIds`, пагинация, сортировка и диапазоны КБЖУ.
+
+2. **Условие WHERE (репозиторий)**  
+   - **Параметр `q`:** строка разбивается по пробелам на слова. Для каждого слова продукт попадает в выборку, если слово есть **либо** в `product.name` (**LOWER(name) LIKE '%word%'`), **либо** в `product_variant.composition` (подзапрос по вариантам с `LOWER(COALESCE(composition,'')) LIKE '%word%'`). Все слова объединяются по AND.  
+   - **deliveryServiceIds:** `product.delivery_service_id IN (...)` — используется индекс `idx_product_delivery_service`.  
+   - **КБЖУ (min/max):** по вариантам строится условие по `calories`, `protein`, `fat`, `carbs`; продукты отбираются через подзапрос по `product_variant` — используются составные индексы по КБЖУ.
+
+3. **Индексы при поиске по названию**  
+   Условие `LOWER(product.name) LIKE '%word%'` (и подзапрос по composition) позволяет PostgreSQL использовать GIN-индекс **idx_product_name_lower_gin** для таблицы `product`, что ускоряет поиск по подстроке вместо полного скана.
+
+4. **Ранжирование при наличии `q`**  
+   Если передан параметр `q`, результаты ранжируются в памяти (до 2000 записей): сначала точная фраза в названии (100), затем все слова в названии (80), затем часть слов в названии (40), затем совпадения только в составе вариантов (20). Сортировка по убыванию ранга, при равенстве — по названию. Пагинация применяется уже к этому отсортированному списку.
+
+5. **Без `q`**  
+   Список продуктов фильтруется только по `deliveryServiceIds` и КБЖУ, сортировка — по полю из `sort` (name/price) или по названию по умолчанию. Пагинация выполняется в SQL (`LIMIT`/`OFFSET`).
+
+Миграции: `service/src/main/resources/db/changelog/` (001 — таблицы и первые индексы, 003 — pg_trgm и составные индексы по КБЖУ). Подробнее по схеме — `docs/database-schema.md`.
 
 ---
 

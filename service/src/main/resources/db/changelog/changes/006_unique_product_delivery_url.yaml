@@ -1,0 +1,9 @@
+databaseChangeLog:
+  - changeSet:
+      id: 006-unique-product-delivery-url
+      author: ma-maiorova
+      changes:
+        - addUniqueConstraint:
+            tableName: product
+            columnNames: "delivery_service_id, url"
+            constraintName: uk_product_delivery_service_url

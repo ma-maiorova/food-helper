@@ -1,12 +1,9 @@
 package org.example
 
 import io.ktor.server.application.*
-import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import io.ktor.server.plugins.callloging.*
 import io.ktor.server.plugins.contentnegotiation.*
-import io.ktor.server.plugins.statuspages.*
-import io.ktor.server.response.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.request.httpMethod
 import io.ktor.server.request.path
@@ -14,13 +11,16 @@ import kotlinx.serialization.json.Json
 import org.example.api.errors.installApiStatusPages
 import org.example.api.routes.configureApiRoutes
 import org.example.config.DatabaseFactory
+import org.example.config.installLifecycleLogging
 import org.example.config.installRequestId
 import org.example.config.requestId
 import org.example.repository.impl.DeliveryServiceRepositoryImpl
+import org.example.repository.impl.ProductImportRepositoryImpl
 import org.example.repository.impl.ProductRepositoryImpl
 import org.example.routes.healthRoutes
 import org.example.routes.swaggerRoutes
 import org.example.service.DeliveryServiceService
+import org.example.service.ProductImportService
 import org.example.service.ProductService
 import org.slf4j.event.Level
 
@@ -28,6 +28,7 @@ fun main(args: Array<String>) = EngineMain.main(args)
 
 fun Application.module() {
     DatabaseFactory.init(environment)
+    installLifecycleLogging()
 
     installRequestId()
     install(CallLogging) {
@@ -35,7 +36,7 @@ fun Application.module() {
         format { call ->
             val requestId = call.requestId()
             val status = call.response.status()
-            "requestId=$requestId ${call.request.httpMethod.value} ${call.request.path()} -> $status"
+            "requestId=$requestId method=${call.request.httpMethod.value} path=${call.request.path()} status=${status?.value}"
         }
     }
 
@@ -50,10 +51,13 @@ fun Application.module() {
     }
 
     installApiStatusPages()
+    val maxItemsPerRequest = environment.config.propertyOrNull("ktor.import.maxItemsPerRequest")?.getString()?.toIntOrNull() ?: 500
+    val importChunkSize = environment.config.propertyOrNull("ktor.import.chunkSize")?.getString()?.toIntOrNull() ?: 100
     val deliveryServiceService = DeliveryServiceService(DeliveryServiceRepositoryImpl, ProductRepositoryImpl)
     val productService = ProductService(ProductRepositoryImpl)
+    val productImportService = ProductImportService(DeliveryServiceRepositoryImpl, ProductImportRepositoryImpl, maxItemsPerRequest, importChunkSize)
 
     healthRoutes()
     swaggerRoutes()
-    configureApiRoutes(deliveryServiceService, productService)
+    configureApiRoutes(deliveryServiceService, productService, productImportService)
 }

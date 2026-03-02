@@ -171,6 +171,42 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/v1/admin/import:
+    post:
+      summary: Импорт продуктов от парсера (админ)
+      description: |
+        Принимает батч продуктов в формате парсера. Импорт идемпотентный: повторная
+        отправка тех же данных не создаёт дубликатов; существующие продукты обновляются
+        (в т.ч. нутриенты вариантов). Обрабатывается не более 500 элементов за запрос.
+        Каждый элемент обрабатывается в отдельной короткой транзакции; при ошибке по
+        элементу он попадает в errors, остальные продолжают обрабатываться.
+      operationId: importProducts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ParserImportRequest'
+      responses:
+        '200':
+          description: Результат импорта (успешно загружено и список не доставленных/ошибок)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportResult'
+        '400':
+          description: Неверное тело запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/v1/products:
     get:
       summary: Поиск продуктов
@@ -343,6 +379,105 @@ components:
           nullable: true
         active:
           type: boolean
+
+    ParserImportRequest:
+      type: object
+      required:
+        - deliveryServiceCode
+      properties:
+        deliveryServiceCode:
+          type: string
+          description: Код службы доставки (должен существовать в БД)
+        items:
+          type: array
+          maxItems: 500
+          items:
+            $ref: '#/components/schemas/ParserImportItem'
+      description: Тело запроса от парсера; обрабатывается не более 500 элементов
+
+    ParserImportItem:
+      type: object
+      required:
+        - name
+        - url
+        - price
+      properties:
+        id:
+          type: integer
+          format: int64
+          nullable: true
+        name:
+          type: string
+        url:
+          type: string
+        price:
+          type: integer
+        currency:
+          type: string
+          default: RUB
+        deliveryService:
+          type: object
+          nullable: true
+        variants:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParserImportVariant'
+
+    ParserImportVariant:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          nullable: true
+        manufacturer:
+          type: string
+          nullable: true
+        composition:
+          type: string
+          nullable: true
+        weight:
+          type: integer
+          nullable: true
+        nutrients:
+          type: object
+          nullable: true
+          properties:
+            calories: { type: integer, nullable: true }
+            protein: { type: number, format: double, nullable: true }
+            fat: { type: number, format: double, nullable: true }
+            carbs: { type: number, format: double, nullable: true }
+
+    ImportResult:
+      type: object
+      properties:
+        importedCount:
+          type: integer
+          description: Количество успешно загруженных/обновлённых продуктов
+        failedCount:
+          type: integer
+          description: Количество элементов, по которым произошла ошибка
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImportErrorItem'
+          description: Список не доставленных элементов с причиной
+
+    ImportErrorItem:
+      type: object
+      properties:
+        itemIndex:
+          type: integer
+          description: Индекс элемента в items (0-based)
+        url:
+          type: string
+          nullable: true
+        name:
+          type: string
+          nullable: true
+        message:
+          type: string
+          description: Причина ошибки
 
     DeliveryService:
       type: object

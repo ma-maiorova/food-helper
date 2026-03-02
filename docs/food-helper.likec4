@@ -1,0 +1,63 @@
+// LikeC4 — C4 модель сервиса Food Helper
+// https://likec4.dev/
+
+specification {
+  element actor {
+    style { shape person; color secondary }
+  }
+
+  element system
+  element application { style { shape browser; color secondary } }
+  element service { style { shape component; color primary } }
+  element component { style { shape component; color muted } }
+
+  element database { style { shape cylinder; color gray } }
+  element cache { style { shape storage; color gray } }
+  element queue { style { shape queue; color amber } }
+  element search { style { shape storage; color gray } }
+  element externalSystem { style { shape rectangle; color muted } }
+
+  relationship sync { color gray; line solid }
+  relationship async { color amber; line dotted }
+}
+
+model {
+
+  user = actor "Пользователь"
+
+  foodHelper = system "Food Helper" "Сервис доставок еды и поиск продуктов по КБЖУ" {
+
+    api = service "API" "REST: /api/v1/delivery-services, /api/v1/products, /health, /swagger" {
+      technology "Kotlin, Ktor, Netty"
+    }
+
+    postgres = database "postgres" {
+      technology "PostgreSQL"
+    }
+
+    api -[sync]-> postgres "JDBC"
+  }
+
+  user -> foodHelper.api "HTTPS / REST"
+}
+
+views {
+
+  view containers of foodHelper {
+    title "Food Helper — Container view"
+    include *
+    include user
+
+    group "Клиенты" {
+      include user
+    }
+
+    group "Backend" {
+      include foodHelper.api
+    }
+
+    group "Data & Infra" {
+      include foodHelper.postgres
+    }
+  }
+}

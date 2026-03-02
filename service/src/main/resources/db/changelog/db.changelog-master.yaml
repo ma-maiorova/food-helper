@@ -9,3 +9,5 @@ databaseChangeLog:
       file: db/changelog/changes/004_replace_delivery_club_with_vkusvill.yaml
   - include:
       file: db/changelog/changes/005_seed_vkusvill.yaml
+  - include:
+      file: db/changelog/changes/006_unique_product_delivery_url.yaml

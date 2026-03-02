@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- Единый формат: время уровень [requestId] логгер — сообщение. requestId из MDC — удобно отслеживать запрос. -->
+    <property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] [%X{requestId}] %logger{36} - %msg%n%ex"/>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- Логгер жизненного цикла — по нему легко проверить, что сервис запущен и жив -->
+    <logger name="org.example.lifecycle" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+    </logger>
+
+    <!-- Ktor, Netty — INFO -->
+    <logger name="io.ktor" level="INFO"/>
+    <logger name="io.netty" level="INFO"/>
+
+    <!-- БД и пулы — WARN, чтобы не засорять логи при нормальной работе -->
+    <logger name="com.zaxxer.hikari" level="WARN"/>
+    <logger name="org.jetbrains.exposed" level="WARN"/>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>

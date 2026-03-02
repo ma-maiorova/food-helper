@@ -5,6 +5,7 @@ import org.example.domain.DeliveryService
 import org.example.repository.DeliveryServiceRepository
 import org.example.repository.DeliveryServicesTable
 import org.jetbrains.exposed.sql.ResultRow
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.selectAll

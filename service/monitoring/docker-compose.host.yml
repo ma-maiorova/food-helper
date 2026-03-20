@@ -1,0 +1,50 @@
+# Решение 1: приложение запущено на хосте (./gradlew run), мониторинг в Docker.
+#
+# Запуск из каталога service/:
+#   docker compose -f monitoring/docker-compose.host.yml up -d
+#
+# Prometheus доступен: http://localhost:9090
+# Grafana доступна:    http://localhost:3000  (admin / admin)
+# Метрики приложения на хосте: http://localhost:8080/metrics
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.51.2
+    container_name: food_helper_prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=7d'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus-host.yml:/etc/prometheus/prometheus.yml:ro
+      - food_helper_prometheus_data:/prometheus
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: food_helper_grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_HTTP_PORT: "3000"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/provisioning/dashboards/json/food-helper.json
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - food_helper_grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  food_helper_prometheus_data:
+  food_helper_grafana_data:

@@ -3,6 +3,7 @@ package org.example.repository.impl
 import org.example.config.DatabaseFactory
 import org.example.domain.*
 import org.example.repository.*
+import org.example.service.computeSearchRank
 import org.example.service.model.Page
 import org.example.service.model.ProductSearchCriteria
 import org.example.service.model.SortDirection
@@ -81,11 +82,12 @@ object ProductRepositoryImpl : ProductRepository {
                 .selectAll()
                 .where { whereOp }
 
-            val order = buildOrderBy(criteria)
-            if (order != null) {
-                query = query.orderBy(order)
+            val orders = buildOrderBy(criteria)
+            query = if (orders.isNotEmpty()) {
+                query.orderBy(*orders.toTypedArray())
             } else {
-                query = query.orderBy(ProductsTable.name to SortOrder.ASC)
+                // Default: name ASC, id ASC for stability
+                query.orderBy(ProductsTable.name to SortOrder.ASC, ProductsTable.id to SortOrder.ASC)
             }
 
             val limit = criteria.size
@@ -139,22 +141,24 @@ object ProductRepositoryImpl : ProductRepository {
         }
 
     /**
-     * Поиск с ранжированием: сначала точная фраза в названии, потом все слова в названии,
-     * потом часть слов в названии, потом совпадения только в составе вариантов.
+     * Поиск с ранжированием: exact phrase (100) > all tokens in name (80) >
+     * mixed name+composition (50) > all tokens only in composition (30).
+     * Tie-break: rank DESC, name ASC (case-insensitive), id ASC — стабильная сортировка.
      */
     private fun searchWithRanking(
         criteria: ProductSearchCriteria,
         whereOp: Op<Boolean>,
         totalElements: Long
     ): Page<Product> {
-        val words = criteria.query!!.trim().lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }
-        val fullPhrase = words.joinToString(" ")
+        val tokens = criteria.query!!.trim().lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }
+        val fullPhrase = tokens.joinToString(" ")
         val cappedTotal = minOf(totalElements, MAX_SEARCH_RESULTS_FOR_RANKING.toLong())
 
+        // Fetch candidates ordered by name+id for deterministic DB reads
         val rows = (ProductsTable innerJoin DeliveryServicesTable)
             .selectAll()
             .where { whereOp }
-            .orderBy(ProductsTable.name to SortOrder.ASC)
+            .orderBy(ProductsTable.name to SortOrder.ASC, ProductsTable.id to SortOrder.ASC)
             .limit(MAX_SEARCH_RESULTS_FOR_RANKING, 0)
             .toList()
 
@@ -190,9 +194,14 @@ object ProductRepositoryImpl : ProductRepository {
             )
         }
 
+        // rank DESC, name ASC (case-insensitive), id ASC — deterministic for pagination
         val sorted = products
-            .map { p -> p to computeSearchRank(p.name, p.variants.mapNotNull { it.composition }, words, fullPhrase) }
-            .sortedWith(compareByDescending<Pair<Product, Int>> { it.second }.thenBy { it.first.name })
+            .map { p -> p to computeSearchRank(p.name, p.variants.mapNotNull { it.composition }, tokens, fullPhrase) }
+            .sortedWith(
+                compareByDescending<Pair<Product, Int>> { it.second }
+                    .thenBy { it.first.name.lowercase() }
+                    .thenBy { it.first.id }
+            )
             .map { it.first }
 
         val offset = criteria.page * criteria.size
@@ -206,45 +215,18 @@ object ProductRepositoryImpl : ProductRepository {
         )
     }
 
-    /**
-     * Ранг релевантности: 100 — точная фраза в названии, 80 — все слова в названии,
-     * 40 — часть слов в названии, 20 — только в составе/описании вариантов.
-     */
-    private fun computeSearchRank(
-        productName: String,
-        variantCompositions: List<String>,
-        words: List<String>,
-        fullPhrase: String
-    ): Int {
-        val nameLower = productName.lowercase()
-        val phraseInName = nameLower.contains(fullPhrase)
-        val allWordsInName = words.all { nameLower.contains(it) }
-        val anyWordInName = words.any { nameLower.contains(it) }
-        val allWordsInComposition = variantCompositions.any { comp ->
-            val c = comp.lowercase()
-            words.all { c.contains(it) }
-        }
-
-        return when {
-            phraseInName -> 100
-            allWordsInName -> 80
-            anyWordInName -> 40
-            allWordsInComposition -> 20
-            else -> 0
-        }
-    }
-
     private fun buildProductWhere(criteria: ProductSearchCriteria): Op<Boolean> {
         val conditions = mutableListOf<Op<Boolean>>()
 
+        // AND semantics: each token must match product.name OR some variant.composition
         criteria.query?.trim()?.takeIf { it.isNotEmpty() }?.let { raw ->
-            val words = raw.lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }
-            for (word in words) {
-                val nameMatch = lower(ProductsTable.name) like "%$word%"
+            val tokens = raw.lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }
+            for (token in tokens) {
+                val nameMatch = lower(ProductsTable.name) like "%$token%"
                 val compositionMatch = ProductsTable.id inSubQuery (
                     ProductVariantsTable.slice(ProductVariantsTable.productId).select {
                         ProductVariantsTable.composition.isNotNull() and
-                            (lowerCoalesce(ProductVariantsTable.composition) like "%$word%")
+                            (lowerCoalesce(ProductVariantsTable.composition) like "%$token%")
                     }
                 )
                 conditions += (nameMatch or compositionMatch)
@@ -309,14 +291,18 @@ object ProductRepositoryImpl : ProductRepository {
     private fun lowerCoalesce(expr: Expression<String?>): Expression<String> =
         lower(CustomFunction("COALESCE", TextColumnType(), expr, stringLiteral("")))
 
-    private fun buildOrderBy(criteria: ProductSearchCriteria): Pair<Expression<*>, SortOrder>? {
-        val sort = criteria.sort ?: return null
+    /**
+     * Returns ORDER BY pairs including deterministic id ASC tie-breaker.
+     * Empty list means "no explicit sort requested" — caller applies default (name, id).
+     */
+    private fun buildOrderBy(criteria: ProductSearchCriteria): List<Pair<Expression<*>, SortOrder>> {
+        val sort = criteria.sort ?: return emptyList()
         val order = if (sort.direction == SortDirection.ASC) SortOrder.ASC else SortOrder.DESC
 
         return when (sort.field.lowercase()) {
-            "name" -> ProductsTable.name to order
-            "price" -> ProductsTable.price to order
-            else -> null
+            "name" -> listOf(ProductsTable.name to order, ProductsTable.id to SortOrder.ASC)
+            "price" -> listOf(ProductsTable.price to order, ProductsTable.id to SortOrder.ASC)
+            else -> emptyList()
         }
     }
 

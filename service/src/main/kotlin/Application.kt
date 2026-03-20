@@ -1,15 +1,20 @@
 package org.example
 
+import io.ktor.http.*
 import io.ktor.server.application.*
+import io.ktor.server.metrics.micrometer.*
 import io.ktor.server.netty.*
 import io.ktor.server.plugins.callloging.*
 import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.request.httpMethod
 import io.ktor.server.request.path
+import io.ktor.server.response.*
+import io.ktor.server.routing.*
 import kotlinx.serialization.json.Json
 import org.example.api.errors.installApiStatusPages
 import org.example.api.routes.configureApiRoutes
+import org.example.config.AppMetrics
 import org.example.config.DatabaseFactory
 import org.example.config.installLifecycleLogging
 import org.example.config.installRequestId
@@ -50,7 +55,12 @@ fun Application.module() {
         )
     }
 
+    install(MicrometerMetrics) {
+        registry = AppMetrics.registry
+    }
+
     installApiStatusPages()
+
     val maxItemsPerRequest = environment.config.propertyOrNull("ktor.import.maxItemsPerRequest")?.getString()?.toIntOrNull() ?: 500
     val importChunkSize = environment.config.propertyOrNull("ktor.import.chunkSize")?.getString()?.toIntOrNull() ?: 100
     val deliveryServiceService = DeliveryServiceService(DeliveryServiceRepositoryImpl, ProductRepositoryImpl)
@@ -60,4 +70,13 @@ fun Application.module() {
     healthRoutes()
     swaggerRoutes()
     configureApiRoutes(deliveryServiceService, productService, productImportService)
+
+    routing {
+        get("/metrics") {
+            call.respondText(
+                AppMetrics.registry.scrape(),
+                contentType = ContentType.Text.Plain
+            )
+        }
+    }
 }

@@ -2,6 +2,7 @@ package org.example.api.errors
 
 import io.ktor.http.*
 import io.ktor.server.application.*
+import io.ktor.server.plugins.*
 import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.request.path
 import io.ktor.server.response.*
@@ -24,6 +25,21 @@ fun Application.installApiStatusPages() {
                     timestamp = Instant.now().toString(),
                     details = cause.details,
                     fieldErrors = cause.fieldErrors
+                )
+            )
+        }
+
+        // Ktor throws BadRequestException for malformed JSON / deserialization failures
+        exception<BadRequestException> { call, cause ->
+            call.respond(
+                HttpStatusCode.BadRequest,
+                ErrorResponse(
+                    requestId = call.requestId(),
+                    code = "BAD_REQUEST",
+                    message = cause.message ?: "Bad request",
+                    status = 400,
+                    path = call.request.path(),
+                    timestamp = Instant.now().toString()
                 )
             )
         }

@@ -2,9 +2,12 @@ package org.example.repository
 
 import org.example.api.dto.ParserImportVariantDto
 
+/** Результат upsert-операции: продукт был создан или обновлён. */
+data class UpsertResult(val productId: Long, val created: Boolean)
+
 interface ProductImportRepository {
     /**
-     * Возвращает id продукта (существующего или только что созданного).
+     * Возвращает результат upsert: id продукта и флаг created/updated.
      * Идемпотентно: при совпадении (delivery_service_id, url) обновляет name, price, currency.
      */
     suspend fun upsertProduct(
@@ -13,7 +16,7 @@ interface ProductImportRepository {
         url: String,
         price: Int,
         currency: String
-    ): Long
+    ): UpsertResult
 
     /**
      * Удаляет все варианты продукта и вставляет переданные.

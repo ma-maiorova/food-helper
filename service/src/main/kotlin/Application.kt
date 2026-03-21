@@ -6,6 +6,7 @@ import io.ktor.server.metrics.micrometer.*
 import io.ktor.server.netty.*
 import io.ktor.server.plugins.callloging.*
 import io.ktor.server.plugins.contentnegotiation.*
+import io.ktor.server.plugins.cors.routing.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.request.httpMethod
 import io.ktor.server.request.path
@@ -34,6 +35,18 @@ fun main(args: Array<String>) = EngineMain.main(args)
 fun Application.module() {
     DatabaseFactory.init(environment)
     installLifecycleLogging()
+
+    install(CORS) {
+        anyHost()                                    // dev: разрешить все origins
+        allowHeader(HttpHeaders.ContentType)
+        allowHeader(HttpHeaders.Authorization)
+        allowHeader("X-Request-Id")
+        allowMethod(HttpMethod.Options)
+        allowMethod(HttpMethod.Get)
+        allowMethod(HttpMethod.Post)
+        allowMethod(HttpMethod.Put)
+        allowMethod(HttpMethod.Delete)
+    }
 
     installRequestId()
     install(CallLogging) {

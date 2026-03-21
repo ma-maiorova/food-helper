@@ -10,15 +10,15 @@ services:
     image: postgres:16-alpine
     container_name: food_helper_postgres
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-food_helper}
-      POSTGRES_USER: ${POSTGRES_USER:-food_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-food_pass}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "${POSTGRES_PORT:-5435}:5432"
     volumes:
       - food_helper_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-food_user} -d ${POSTGRES_DB:-food_helper}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -33,9 +33,9 @@ services:
     env_file:
       - .env
     environment:
-      DB_JDBC_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-food_helper}
-      DB_USER: ${POSTGRES_USER:-food_user}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-food_pass}
+      DB_JDBC_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "${API_PORT:-8080}:8080"
     depends_on:

@@ -8,7 +8,7 @@ import org.example.api.dto.ParserImportRequest
 import org.example.service.ProductImportService
 
 fun Route.adminImportRoutes(importService: ProductImportService) {
-    route("/admin/import") {
+    route("/import") {
         post {
             val body = call.receive<ParserImportRequest>()
             val result = importService.importBatch(body)

@@ -5,6 +5,7 @@ import org.example.config.DatabaseFactory
 import org.example.repository.ProductImportRepository
 import org.example.repository.ProductVariantsTable
 import org.example.repository.ProductsTable
+import org.example.repository.UpsertResult
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.deleteWhere
@@ -21,7 +22,7 @@ object ProductImportRepositoryImpl : ProductImportRepository {
         url: String,
         price: Int,
         currency: String
-    ): Long = DatabaseFactory.dbQuery {
+    ): UpsertResult = DatabaseFactory.dbQuery {
         val existing = ProductsTable
             .selectAll()
             .where {
@@ -39,7 +40,7 @@ object ProductImportRepositoryImpl : ProductImportRepository {
                 it[ProductsTable.currency] = currency
                 it[ProductsTable.updatedAt] = now
             }
-            id
+            UpsertResult(productId = id, created = false)
         } else {
             ProductsTable.insert {
                 it[ProductsTable.deliveryServiceId] = deliveryServiceId
@@ -50,13 +51,14 @@ object ProductImportRepositoryImpl : ProductImportRepository {
                 it[ProductsTable.createdAt] = now
                 it[ProductsTable.updatedAt] = now
             }
-            ProductsTable
+            val id = ProductsTable
                 .selectAll()
                 .where {
                     (ProductsTable.deliveryServiceId eq deliveryServiceId) and (ProductsTable.url eq url)
                 }
                 .limit(1)
                 .first()[ProductsTable.id]
+            UpsertResult(productId = id, created = true)
         }
     }
 

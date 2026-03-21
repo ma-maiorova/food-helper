@@ -12,7 +12,7 @@ import org.example.api.mapper.toDto
 import org.example.service.DeliveryServiceService
 
 fun Route.adminDeliveryServiceRoutes(service: DeliveryServiceService) {
-    route("/admin/delivery-services") {
+    route("/delivery-services") {
         post {
             val body = call.receive<CreateDeliveryServiceRequest>()
             val created = service.create(

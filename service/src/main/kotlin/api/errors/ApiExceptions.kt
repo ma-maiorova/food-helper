@@ -27,3 +27,7 @@ class BusinessValidationException(
 /** 404 — ресурс не найден. */
 class NotFoundException(message: String) :
     ApiException(HttpStatusCode.NotFound, "NOT_FOUND", message)
+
+/** 401 — отсутствует или неверный API-ключ. */
+class UnauthorizedException(message: String) :
+    ApiException(HttpStatusCode.Unauthorized, "UNAUTHORIZED", message)

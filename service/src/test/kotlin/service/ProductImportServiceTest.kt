@@ -1,6 +1,7 @@
 package service
 
 import kotlinx.coroutines.runBlocking
+import org.example.api.dto.ImportErrorCode
 import org.example.api.dto.ParserImportItemDto
 import org.example.api.dto.ParserImportNutrientsDto
 import org.example.api.dto.ParserImportRequest
@@ -9,12 +10,12 @@ import org.example.api.errors.ValidationException
 import org.example.domain.DeliveryService
 import org.example.repository.DeliveryServiceRepository
 import org.example.repository.ProductImportRepository
+import org.example.repository.UpsertResult
 import org.example.service.ProductImportService
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertNotNull
-import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class ProductImportServiceTest {
 
@@ -32,10 +33,11 @@ class ProductImportServiceTest {
         override suspend fun delete(id: Long) = false
     }
 
+    private var nextId = 1L
     private val fakeImportRepo = object : ProductImportRepository {
         override suspend fun upsertProduct(
             deliveryServiceId: Long, name: String, url: String, price: Int, currency: String
-        ) = 42L
+        ) = UpsertResult(productId = nextId++, created = true)
 
         override suspend fun replaceVariants(
             productId: Long,
@@ -46,12 +48,15 @@ class ProductImportServiceTest {
     private fun service(maxItems: Int = 10) =
         ProductImportService(fakeDeliveryRepo, fakeImportRepo, maxItems, chunkSize = 5)
 
+    /** A minimal valid variant (non-empty nutrients to satisfy empty_variants check). */
+    private fun validVariant() = ParserImportVariantDto(nutrients = null)
+
     private fun validItem(url: String = "https://vkusvill.ru/goods/1") = ParserImportItemDto(
         name = "Молоко 1л",
         url = url,
         price = 150,
         currency = "RUB",
-        variants = emptyList()
+        variants = listOf(validVariant())
     )
 
     private fun validRequest(items: List<ParserImportItemDto> = listOf(validItem())) =
@@ -73,8 +78,8 @@ class ProductImportServiceTest {
     fun `request at exactly maxItemsPerRequest is accepted`() = runBlocking {
         val items = (1..5).map { validItem("https://vkusvill.ru/goods/$it") }
         val result = service(maxItems = 5).importBatch(validRequest(items))
-        assertEquals(5, result.importedCount)
-        assertEquals(0, result.failedCount)
+        assertEquals(5, result.created)
+        assertEquals(0, result.failed)
     }
 
     @Test
@@ -96,8 +101,9 @@ class ProductImportServiceTest {
     @Test
     fun `unknown deliveryServiceCode returns error result`() = runBlocking {
         val result = service().importBatch(ParserImportRequest("UNKNOWN", listOf(validItem())))
-        assertEquals(0, result.importedCount)
+        assertEquals(0, result.created)
         assert(result.errors.first().message.contains("UNKNOWN"))
+        assertEquals(ImportErrorCode.UNKNOWN_SERVICE, result.errors.first().errorCode)
     }
 
     // ── Item-level validation ─────────────────────────────────────────────────
@@ -105,51 +111,65 @@ class ProductImportServiceTest {
     @Test
     fun `blank name fails item`() = runBlocking {
         val result = service().importBatch(validRequest(listOf(validItem().copy(name = "  "))))
-        assertEquals(0, result.importedCount)
-        assertEquals(1, result.failedCount)
+        assertEquals(0, result.created)
+        assertEquals(1, result.failed)
+        assertEquals(ImportErrorCode.BLANK_NAME, result.errors.first().errorCode)
         assert(result.errors.first().message.contains("name"))
     }
 
     @Test
     fun `blank url fails item`() = runBlocking {
         val result = service().importBatch(validRequest(listOf(validItem().copy(url = ""))))
-        assertEquals(0, result.importedCount)
-        assertEquals(1, result.failedCount)
+        assertEquals(0, result.created)
+        assertEquals(1, result.failed)
+        assertEquals(ImportErrorCode.BLANK_URL, result.errors.first().errorCode)
     }
 
     @Test
     fun `relative url fails item`() = runBlocking {
         val result = service().importBatch(validRequest(listOf(validItem().copy(url = "/goods/1"))))
-        assertEquals(0, result.importedCount)
+        assertEquals(0, result.created)
+        assertEquals(ImportErrorCode.INVALID_URL, result.errors.first().errorCode)
         assert(result.errors.first().message.contains("абсолютным"))
     }
 
     @Test
     fun `non http url fails item`() = runBlocking {
         val result = service().importBatch(validRequest(listOf(validItem().copy(url = "ftp://example.com/file"))))
-        assertEquals(0, result.importedCount)
-        assert(result.errors.first().message.contains("абсолютным"))
+        assertEquals(0, result.created)
+        assertEquals(ImportErrorCode.INVALID_URL, result.errors.first().errorCode)
     }
 
     @Test
     fun `negative price fails item`() = runBlocking {
         val result = service().importBatch(validRequest(listOf(validItem().copy(price = -1))))
-        assertEquals(0, result.importedCount)
+        assertEquals(0, result.created)
+        assertEquals(ImportErrorCode.NEGATIVE_PRICE, result.errors.first().errorCode)
         assert(result.errors.first().message.contains("price"))
     }
 
     @Test
     fun `blank currency fails item`() = runBlocking {
         val result = service().importBatch(validRequest(listOf(validItem().copy(currency = "  "))))
-        assertEquals(0, result.importedCount)
+        assertEquals(0, result.created)
+        assertEquals(ImportErrorCode.BLANK_CURRENCY, result.errors.first().errorCode)
         assert(result.errors.first().message.contains("currency"))
+    }
+
+    @Test
+    fun `empty variants fails item with empty_variants error code`() = runBlocking {
+        val result = service().importBatch(validRequest(listOf(validItem().copy(variants = emptyList()))))
+        assertEquals(0, result.created)
+        assertEquals(1, result.failed)
+        assertEquals(ImportErrorCode.EMPTY_VARIANTS, result.errors.first().errorCode)
     }
 
     @Test
     fun `zero weight fails item`() = runBlocking {
         val variant = ParserImportVariantDto(weight = 0)
         val result = service().importBatch(validRequest(listOf(validItem().copy(variants = listOf(variant)))))
-        assertEquals(0, result.importedCount)
+        assertEquals(0, result.created)
+        assertEquals(ImportErrorCode.INVALID_WEIGHT, result.errors.first().errorCode)
         assert(result.errors.first().message.contains("weight"))
     }
 
@@ -157,14 +177,16 @@ class ProductImportServiceTest {
     fun `negative weight fails item`() = runBlocking {
         val variant = ParserImportVariantDto(weight = -5)
         val result = service().importBatch(validRequest(listOf(validItem().copy(variants = listOf(variant)))))
-        assertEquals(0, result.importedCount)
+        assertEquals(0, result.created)
+        assertEquals(ImportErrorCode.INVALID_WEIGHT, result.errors.first().errorCode)
     }
 
     @Test
     fun `negative calories fails item`() = runBlocking {
         val variant = ParserImportVariantDto(nutrients = ParserImportNutrientsDto(calories = -1))
         val result = service().importBatch(validRequest(listOf(validItem().copy(variants = listOf(variant)))))
-        assertEquals(0, result.importedCount)
+        assertEquals(0, result.created)
+        assertEquals(ImportErrorCode.NEGATIVE_NUTRIENTS, result.errors.first().errorCode)
         assert(result.errors.first().message.contains("calories"))
     }
 
@@ -172,24 +194,27 @@ class ProductImportServiceTest {
     fun `negative protein fails item`() = runBlocking {
         val variant = ParserImportVariantDto(nutrients = ParserImportNutrientsDto(protein = -0.1))
         val result = service().importBatch(validRequest(listOf(validItem().copy(variants = listOf(variant)))))
-        assertEquals(0, result.importedCount)
+        assertEquals(0, result.created)
+        assertEquals(ImportErrorCode.NEGATIVE_NUTRIENTS, result.errors.first().errorCode)
     }
 
     @Test
     fun `negative fat fails item`() = runBlocking {
         val variant = ParserImportVariantDto(nutrients = ParserImportNutrientsDto(fat = -1.0))
         val result = service().importBatch(validRequest(listOf(validItem().copy(variants = listOf(variant)))))
-        assertEquals(0, result.importedCount)
+        assertEquals(0, result.created)
+        assertEquals(ImportErrorCode.NEGATIVE_NUTRIENTS, result.errors.first().errorCode)
     }
 
     @Test
     fun `negative carbs fails item`() = runBlocking {
         val variant = ParserImportVariantDto(nutrients = ParserImportNutrientsDto(carbs = -0.5))
         val result = service().importBatch(validRequest(listOf(validItem().copy(variants = listOf(variant)))))
-        assertEquals(0, result.importedCount)
+        assertEquals(0, result.created)
+        assertEquals(ImportErrorCode.NEGATIVE_NUTRIENTS, result.errors.first().errorCode)
     }
 
-    // ── Valid item passes ─────────────────────────────────────────────────────
+    // ── Valid items pass ──────────────────────────────────────────────────────
 
     @Test
     fun `valid item with positive weight and nutrients is imported`() = runBlocking {
@@ -198,8 +223,8 @@ class ProductImportServiceTest {
             nutrients = ParserImportNutrientsDto(calories = 120, protein = 3.5, fat = 2.0, carbs = 15.0)
         )
         val result = service().importBatch(validRequest(listOf(validItem().copy(variants = listOf(variant)))))
-        assertEquals(1, result.importedCount)
-        assertEquals(0, result.failedCount)
+        assertEquals(1, result.created)
+        assertEquals(0, result.failed)
     }
 
     @Test
@@ -209,13 +234,13 @@ class ProductImportServiceTest {
             nutrients = ParserImportNutrientsDto(calories = null, protein = null, fat = null, carbs = null)
         )
         val result = service().importBatch(validRequest(listOf(validItem().copy(variants = listOf(variant)))))
-        assertEquals(1, result.importedCount)
+        assertEquals(1, result.created)
     }
 
     @Test
     fun `zero price is accepted`() = runBlocking {
         val result = service().importBatch(validRequest(listOf(validItem().copy(price = 0))))
-        assertEquals(1, result.importedCount)
+        assertEquals(1, result.created)
     }
 
     // ── Partial failure ───────────────────────────────────────────────────────
@@ -228,9 +253,36 @@ class ProductImportServiceTest {
             validItem("https://vkusvill.ru/goods/3")
         )
         val result = service().importBatch(validRequest(items))
-        assertEquals(2, result.importedCount)
-        assertEquals(1, result.failedCount)
+        assertEquals(2, result.created)
+        assertEquals(1, result.failed)
         assertEquals(1, result.errors.size)
         assertEquals(1, result.errors.first().itemIndex) // 0-based, second item
+    }
+
+    // ── Duplicate URL in batch — last wins ────────────────────────────────────
+
+    @Test
+    fun `duplicate URL in batch counts as duplicatesResolved and processes only last item`() = runBlocking {
+        val items = listOf(
+            validItem("https://vkusvill.ru/goods/1").copy(name = "First"),
+            validItem("https://vkusvill.ru/goods/1").copy(name = "Second"),
+            validItem("https://vkusvill.ru/goods/2")
+        )
+        val result = service().importBatch(validRequest(items))
+        assertEquals(3, result.totalReceived)
+        assertEquals(1, result.duplicatesResolved)
+        assertEquals(2, result.created)
+        assertEquals(0, result.failed)
+    }
+
+    @Test
+    fun `richer response has totalReceived durationMs and errors with errorCode`() = runBlocking {
+        val result = service().importBatch(validRequest(listOf(validItem().copy(url = "/invalid"))))
+        assertEquals(1, result.totalReceived)
+        assertEquals(0, result.duplicatesResolved)
+        assertEquals(0, result.created)
+        assertEquals(1, result.failed)
+        assertTrue(result.durationMs >= 0)
+        assertEquals(ImportErrorCode.INVALID_URL, result.errors.first().errorCode)
     }
 }

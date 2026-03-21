@@ -1,0 +1,28 @@
+databaseChangeLog:
+  - changeSet:
+      id: 007_indexes_composition_search
+      author: ma-maiorova
+      runInTransaction: false
+      comment: >
+        GIN trigram index on lower(product_variant.composition) for composition-based
+        search performance. The search query checks composition ILIKE '%token%' for each
+        token; without this index every search causes a full scan of product_variant.
+        At ~10k products with multiple variants each, this becomes the hot path.
+        runInTransaction=false required because CREATE INDEX CONCURRENTLY cannot run
+        inside a transaction block.
+      changes:
+        - sql:
+            sql: >
+              CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_variant_composition_lower_gin
+              ON product_variant USING GIN (lower(composition) gin_trgm_ops);
+            splitStatements: false
+        - sql:
+            sql: >
+              CREATE INDEX IF NOT EXISTS idx_product_variant_product_id
+              ON product_variant (product_id);
+            splitStatements: false
+      rollback:
+        - sql:
+            sql: DROP INDEX IF EXISTS idx_variant_composition_lower_gin;
+        - sql:
+            sql: DROP INDEX IF EXISTS idx_product_variant_product_id;

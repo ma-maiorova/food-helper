@@ -63,13 +63,16 @@ fun Application.module() {
 
     val maxItemsPerRequest = environment.config.propertyOrNull("ktor.import.maxItemsPerRequest")?.getString()?.toIntOrNull() ?: 500
     val importChunkSize = environment.config.propertyOrNull("ktor.import.chunkSize")?.getString()?.toIntOrNull() ?: 100
+    val adminApiKey = System.getenv("ADMIN_API_KEY")
+        ?: environment.config.propertyOrNull("ktor.admin.apiKey")?.getString()
+        ?: ""
     val deliveryServiceService = DeliveryServiceService(DeliveryServiceRepositoryImpl, ProductRepositoryImpl)
     val productService = ProductService(ProductRepositoryImpl)
     val productImportService = ProductImportService(DeliveryServiceRepositoryImpl, ProductImportRepositoryImpl, maxItemsPerRequest, importChunkSize)
 
     healthRoutes()
     swaggerRoutes()
-    configureApiRoutes(deliveryServiceService, productService, productImportService)
+    configureApiRoutes(deliveryServiceService, productService, productImportService, adminApiKey)
 
     routing {
         get("/metrics") {

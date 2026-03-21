@@ -11,3 +11,5 @@ databaseChangeLog:
       file: db/changelog/changes/005_seed_vkusvill.yaml
   - include:
       file: db/changelog/changes/006_unique_product_delivery_url.yaml
+  - include:
+      file: db/changelog/changes/007_indexes_composition_search.yaml

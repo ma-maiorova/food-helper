@@ -32,7 +32,7 @@ val exposedVersion = "0.53.0"
 dependencies {
     // Ktor server
     implementation("io.ktor:ktor-server-core-jvm:$ktorVersion")
-    // implementation("io.ktor:ktor-server-config-hocon-jvm:${ktorVersion}")
+    implementation("io.ktor:ktor-server-config-hocon-jvm:$ktorVersion")
     implementation("io.ktor:ktor-server-netty-jvm:$ktorVersion")
     implementation("io.ktor:ktor-server-content-negotiation-jvm:$ktorVersion")
     implementation("io.ktor:ktor-serialization-kotlinx-json-jvm:$ktorVersion")

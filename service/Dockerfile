@@ -20,4 +20,4 @@ RUN apt-get update && apt-get install -y --no-install-recommends wget \
 COPY --from=build /app/build/install/service/ .
 
 EXPOSE 8080
-ENTRYPOINT ["./bin/service", "-port=8080"]
+ENTRYPOINT ["./bin/service"]

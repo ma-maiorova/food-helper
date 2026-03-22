@@ -21,6 +21,7 @@ fun Application.configureApiRoutes(
                 installApiKeyAuth(adminApiKey)
                 adminDeliveryServiceRoutes(deliveryServiceService)
                 adminImportRoutes(productImportService)
+                adminProductRoutes(productService)
             }
         }
     }

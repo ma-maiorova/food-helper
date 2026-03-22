@@ -1,9 +1,14 @@
-# Dev-режим: postgres + api. Позже можно добавить loader.
-# Запуск: из каталога service выполнить
-#   docker compose --env-file .env up -d
-# или
-#   docker compose up -d
-# (без .env будут использованы значения по умолчанию ниже)
+# Запуск:
+#   local: docker compose --env-file .env.local up -d
+#   prod:  docker compose --env-file .env.prod  up -d
+#
+# Порты управляются через env-файл:
+#   Nginx    → ${NGINX_BIND_HOST}:${NGINX_PORT}:80
+#   Postgres → ${POSTGRES_BIND_HOST}:${POSTGRES_PORT}:5432
+#   API      → ${API_BIND_HOST}:8080:8080
+#
+# Monitoring запускается отдельно:
+#   docker compose -f monitoring/docker-compose.yml --env-file .env.local up -d
 
 services:
   postgres:
@@ -14,9 +19,11 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "${POSTGRES_PORT:-5435}:5432"
+      - "${POSTGRES_BIND_HOST:-0.0.0.0}:${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - food_helper_pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - app_net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
@@ -30,29 +37,49 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: food_helper_api
-    env_file:
-      - .env
     environment:
-      DB_JDBC_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
-      DB_USER: ${POSTGRES_USER}
+      JDBC_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      DB_USERNAME: ${POSTGRES_USER}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
+      ADMIN_API_KEY: ${ADMIN_API_KEY}
     ports:
-      - "${API_PORT:-8080}:8080"
+      - "${API_BIND_HOST:-127.0.0.1}:8080:8080"
+    networks:
+      - app_net
     depends_on:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:8080/health || exit 1"]
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/health 2>/dev/null || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 3
-      start_period: 30s
+      retries: 5
+      start_period: 90s
     restart: unless-stopped
 
-  # loader:
-  #   build: ...
-  #   depends_on: [postgres, api]
-  #   ...
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: food_helper_nginx
+    ports:
+      - "${NGINX_BIND_HOST:-0.0.0.0}:${NGINX_PORT:-80}:80"
+    volumes:
+      - ./docs/nginx.docker.conf:/etc/nginx/conf.d/food-helper.conf:ro
+      - /dev/null:/etc/nginx/conf.d/default.conf:ro
+      - ./frontend-dist:/usr/share/nginx/html:ro
+      - nginx_logs:/var/log/nginx
+    networks:
+      - app_net
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+networks:
+  app_net:
+    name: food_helper_net
 
 volumes:
-  food_helper_pgdata:
+  pgdata:
+    name: food_helper_pgdata
+  nginx_logs:
+    name: food_helper_nginx_logs

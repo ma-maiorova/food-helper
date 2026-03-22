@@ -1,5 +1,6 @@
 package org.example.repository.impl
 
+import org.example.api.dto.UpdateProductRequest
 import org.example.config.DatabaseFactory
 import org.example.domain.*
 import org.example.repository.*
@@ -14,6 +15,7 @@ import org.jetbrains.exposed.sql.SqlExpressionBuilder.greaterEq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.lessEq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.like
+import java.time.Instant
 
 object ProductRepositoryImpl : ProductRepository {
 
@@ -330,4 +332,73 @@ object ProductRepositoryImpl : ProductRepository {
                 carbs = this[ProductVariantsTable.carbs]
             )
         )
+
+    // ─── Admin: delete ────────────────────────────────────────────────────────
+
+    override suspend fun deleteById(id: Long): Boolean =
+        DatabaseFactory.dbQuery {
+            val count = ProductsTable.deleteWhere { ProductsTable.id eq id }
+            count > 0
+        }
+
+    // ─── Admin: update ────────────────────────────────────────────────────────
+
+    override suspend fun updateProduct(id: Long, req: UpdateProductRequest): Product? =
+        DatabaseFactory.dbQuery {
+            val hasProductChanges = req.name != null || req.price != null
+            if (hasProductChanges) {
+                ProductsTable.update({ ProductsTable.id eq id }) { stmt ->
+                    req.name?.let { stmt[name] = it }
+                    req.price?.let { stmt[price] = it }
+                    stmt[updatedAt] = Instant.now()
+                }
+            }
+
+            val hasVariantChanges = req.manufacturer != null || req.composition != null ||
+                req.weight != null || req.calories != null ||
+                req.protein != null || req.fat != null || req.carbs != null
+            if (hasVariantChanges) {
+                val variantId = ProductVariantsTable
+                    .select(ProductVariantsTable.id)
+                    .where { ProductVariantsTable.productId eq id }
+                    .orderBy(ProductVariantsTable.id, SortOrder.ASC)
+                    .limit(1)
+                    .firstOrNull()
+                    ?.get(ProductVariantsTable.id)
+
+                if (variantId != null) {
+                    ProductVariantsTable.update({ ProductVariantsTable.id eq variantId }) { stmt ->
+                        req.manufacturer?.let { stmt[manufacturer] = it.ifEmpty { null } }
+                        req.composition?.let { stmt[composition] = it.ifEmpty { null } }
+                        req.weight?.let { stmt[weight] = it }
+                        req.calories?.let { stmt[calories] = it }
+                        req.protein?.let { stmt[protein] = it }
+                        req.fat?.let { stmt[fat] = it }
+                        req.carbs?.let { stmt[carbs] = it }
+                    }
+                }
+            }
+
+            val productRow = ProductsTable.selectAll()
+                .where { ProductsTable.id eq id }
+                .firstOrNull() ?: return@dbQuery null
+
+            val serviceRow = DeliveryServicesTable.selectAll()
+                .where { DeliveryServicesTable.id eq productRow[ProductsTable.deliveryServiceId] }
+                .first()
+
+            val variantRows = ProductVariantsTable.selectAll()
+                .where { ProductVariantsTable.productId eq id }
+                .toList()
+
+            Product(
+                id = id,
+                name = productRow[ProductsTable.name],
+                url = productRow[ProductsTable.url],
+                price = productRow[ProductsTable.price],
+                currency = productRow[ProductsTable.currency],
+                deliveryService = serviceRow.toDeliveryService(),
+                variants = variantRows.map { it.toProductVariant() }
+            )
+        }
 }

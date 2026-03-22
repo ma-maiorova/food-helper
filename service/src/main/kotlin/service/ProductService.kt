@@ -1,5 +1,6 @@
 package org.example.service
 
+import org.example.api.dto.UpdateProductRequest
 import org.example.config.AppMetrics
 import org.example.domain.Product
 import org.example.repository.ProductRepository
@@ -33,5 +34,15 @@ class ProductService(
         }
 
         return result
+    }
+
+    suspend fun delete(id: Long): Boolean {
+        log.info("product.delete id={}", id)
+        return repo.deleteById(id)
+    }
+
+    suspend fun update(id: Long, req: UpdateProductRequest): Product? {
+        log.info("product.update id={}", id)
+        return repo.updateProduct(id, req)
     }
 }

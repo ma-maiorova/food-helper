@@ -76,4 +76,4 @@ log/
 
 README_CURRENT_STATE.md
 service/out.csv
-service/src/main/resources/application.conf
+service/src/main/resources/application-local.conf

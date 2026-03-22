@@ -39,6 +39,7 @@ Desktop.ini
 # --- Локальные конфиги и секреты ---
 .env
 .env.local
+.env.prod
 .env.*.local
 *.local
 local.properties

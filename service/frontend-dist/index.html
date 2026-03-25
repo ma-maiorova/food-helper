@@ -256,6 +256,7 @@ const Ic = {
   ChevR:()    => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>,
   Alert:()    => <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>,
   SearchX:()  => <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><line x1="8" y1="11" x2="14" y2="11"/></svg>,
+  Cart:({s=18})=> <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>,
 };
 
 /* ═══════════════════════════════════════════════════════
@@ -403,7 +404,7 @@ function SkeletonCard() {
 /* ═══════════════════════════════════════════════════════
    PRODUCT CARD
    ═══════════════════════════════════════════════════════ */
-function ProductCard({ product, onClick }) {
+function ProductCard({ product, onClick, inCart, onCartToggle }) {
   const n  = primaryNutrients(product);
   const v0 = product.variants?.[0] || {};
   const [hov, setHov] = useState(false);
@@ -423,10 +424,9 @@ function ProductCard({ product, onClick }) {
         position:'relative',
       }}>
 
-      {/* Row: name + icon — click opens detail */}
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start',
-        gap:8, cursor:'pointer' }} onClick={() => onClick(product)}>
-        <div style={{ flex:1, minWidth:0 }}>
+      {/* Row: name + icons */}
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:8 }}>
+        <div style={{ flex:1, minWidth:0, cursor:'pointer' }} onClick={() => onClick(product)}>
           <div style={{ fontSize:14, fontWeight:600, lineHeight:'1.35', marginBottom:5 }}>
             {product.name}
           </div>
@@ -442,10 +442,23 @@ function ProductCard({ product, onClick }) {
             {price && <span>· {price}</span>}
           </div>
         </div>
-        <span style={{ color: hov ? 'var(--accent)' : 'var(--text-2)', flexShrink:0,
-          opacity: hov ? 1 : 0.6, transition:'color .15s, opacity .15s', marginTop:2 }}>
-          <Ic.Link/>
-        </span>
+        <div style={{ display:'flex', alignItems:'center', gap:2, flexShrink:0, marginTop:2 }}>
+          <button
+            onClick={e => { e.stopPropagation(); onCartToggle(product); }}
+            title={inCart ? 'Убрать из корзины' : 'В корзину'}
+            style={{ background:'none', border:'none', cursor:'pointer', padding:3,
+              display:'flex', borderRadius:5,
+              color: inCart ? 'var(--accent)' : 'var(--text-2)',
+              opacity: inCart ? 1 : (hov ? 0.7 : 0.4),
+              transition:'color .15s, opacity .15s' }}>
+            <Ic.Cart s={15}/>
+          </button>
+          <span onClick={() => onClick(product)} style={{ cursor:'pointer', padding:3,
+            display:'flex', color: hov ? 'var(--accent)' : 'var(--text-2)',
+            opacity: hov ? 1 : 0.6, transition:'color .15s, opacity .15s' }}>
+            <Ic.Link/>
+          </span>
+        </div>
       </div>
 
       {/* КБЖУ badges */}
@@ -457,13 +470,12 @@ function ProductCard({ product, onClick }) {
       </div>
 
       {/* Composition preview */}
-      {v0.composition && (
-        <p style={{ fontSize:12, color:'var(--text-2)', lineHeight:'1.45',
-          display:'-webkit-box', WebkitLineClamp:2,
-          WebkitBoxOrient:'vertical', overflow:'hidden' }}>
-          {v0.composition}
-        </p>
-      )}
+      <p style={{ fontSize:12, color: v0.composition ? 'var(--text-2)' : '#C0C4CC',
+        lineHeight:'1.45', display:'-webkit-box', WebkitLineClamp:2,
+        WebkitBoxOrient:'vertical', overflow:'hidden' }}>
+        {v0.composition || 'Состав не указан'}
+      </p>
+
     </div>
   );
 }
@@ -551,15 +563,16 @@ function ProductDetailContent({ product, onClose }) {
       )}
 
       {/* Composition */}
-      {v0.composition && (
-        <div>
-          <p style={{ fontSize:12, fontWeight:600, textTransform:'uppercase',
-            letterSpacing:'.04em', color:'var(--text-2)', marginBottom:8 }}>
-            Состав
-          </p>
-          <p style={{ fontSize:14, lineHeight:'1.6' }}>{v0.composition}</p>
-        </div>
-      )}
+      <div>
+        <p style={{ fontSize:12, fontWeight:600, textTransform:'uppercase',
+          letterSpacing:'.04em', color:'var(--text-2)', marginBottom:8 }}>
+          Состав
+        </p>
+        <p style={{ fontSize:14, lineHeight:'1.6',
+          color: v0.composition ? 'var(--text)' : '#C0C4CC' }}>
+          {v0.composition || 'Состав не указан'}
+        </p>
+      </div>
 
       {/* CTA */}
       <a href={product.url} target="_blank" rel="noopener noreferrer"
@@ -721,6 +734,131 @@ function SortSelect({ value, onChange }) {
 
 
 /* ═══════════════════════════════════════════════════════
+   CART PANEL
+   ═══════════════════════════════════════════════════════ */
+function CartPanel({ items, onRemove, onOpen }) {
+  const totals = useMemo(() => {
+    let price = 0, cal = 0, prot = 0, fat = 0, carbs = 0;
+    let hasPrice = false, hasApprox = false;
+    items.forEach(p => {
+      const n = p.variants?.[0]?.nutrients || {};
+      const w = p.variants?.[0]?.weight;
+      if (w != null) {
+        const mul = w / 100;
+        cal   += (n.calories ?? 0) * mul;
+        prot  += (n.protein  ?? 0) * mul;
+        fat   += (n.fat      ?? 0) * mul;
+        carbs += (n.carbs    ?? 0) * mul;
+      } else {
+        cal   += n.calories ?? 0;
+        prot  += n.protein  ?? 0;
+        fat   += n.fat      ?? 0;
+        carbs += n.carbs    ?? 0;
+        hasApprox = true;
+      }
+      if (p.price != null) { price += p.price; hasPrice = true; }
+    });
+    return { price, hasPrice, cal, prot, fat, carbs, hasApprox };
+  }, [items]);
+
+  if (items.length === 0) {
+    return (
+      <div style={{ background:'var(--surface)', borderRadius:'var(--r)',
+        padding:'24px 20px', boxShadow:'var(--sh)', textAlign:'center', marginBottom:20 }}>
+        <div style={{ fontSize:28, marginBottom:8 }}>🛒</div>
+        <p style={{ fontWeight:600, fontSize:14, marginBottom:4 }}>Корзина пуста</p>
+        <p style={{ fontSize:12, color:'var(--text-2)' }}>Добавляй товары из результатов поиска</p>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ background:'var(--surface)', borderRadius:'var(--r)',
+      boxShadow:'var(--sh)', marginBottom:20, overflow:'hidden' }}>
+      {/* Header */}
+      <div style={{ padding:'10px 16px', borderBottom:'1px solid var(--border)' }}>
+        <span style={{ fontWeight:700, fontSize:14 }}>
+          Корзина
+          <span style={{ marginLeft:7, background:'var(--accent)', color:'#fff',
+            fontSize:11, fontWeight:700, padding:'1px 7px', borderRadius:99 }}>
+            {items.length}
+          </span>
+        </span>
+      </div>
+      {/* Items */}
+      {items.map((p, i) => {
+        const n = primaryNutrients(p);
+        const v0 = p.variants?.[0] || {};
+        const iconBtn = (onClick, title, children, hoverColor='var(--accent)') => (
+          <button onClick={onClick} title={title}
+            style={{ background:'none', border:'none', cursor:'pointer', padding:4,
+              display:'flex', flexShrink:0, borderRadius:5, color:'var(--text-2)' }}
+            onMouseEnter={e => e.currentTarget.style.color=hoverColor}
+            onMouseLeave={e => e.currentTarget.style.color='var(--text-2)'}>
+            {children}
+          </button>
+        );
+        return (
+          <div key={p.id} style={{
+            display:'flex', alignItems:'center', gap:8, padding:'9px 16px',
+            borderBottom: i < items.length - 1 ? '1px solid var(--border)' : 'none',
+          }}>
+            {/* Name + КБЖУ — click opens modal */}
+            <div style={{ flex:1, minWidth:0, cursor:'pointer' }} onClick={() => onOpen(p)}>
+              <div style={{ fontSize:13, fontWeight:600, marginBottom:2,
+                overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                {p.name}
+              </div>
+              <div style={{ display:'flex', gap:5, flexWrap:'wrap', fontSize:11, color:'var(--text-2)' }}>
+                {v0.weight != null && <span>{v0.weight} г ·</span>}
+                <span>Б {fmt(n.protein)}г</span>
+                <span>· Ж {fmt(n.fat)}г</span>
+                <span>· У {fmt(n.carbs)}г</span>
+                <span>· 🔥 {fmt(n.calories)} ккал</span>
+                {p.price != null && <span>· {formatPrice(p.price)}</span>}
+              </div>
+            </div>
+            {/* Actions */}
+            <div style={{ display:'flex', alignItems:'center', gap:0, flexShrink:0 }}>
+              <a href={p.url} target="_blank" rel="noopener noreferrer" title="Перейти на сайт"
+                style={{ background:'none', border:'none', cursor:'pointer', padding:4,
+                  display:'flex', flexShrink:0, borderRadius:5, color:'var(--text-2)',
+                  textDecoration:'none' }}
+                onMouseEnter={e => e.currentTarget.style.color='var(--accent)'}
+                onMouseLeave={e => e.currentTarget.style.color='var(--text-2)'}>
+                <Ic.Link s={14}/>
+              </a>
+              {iconBtn(() => onRemove(p.id), 'Удалить из корзины', <Ic.X s={14}/>, '#EF4444')}
+            </div>
+          </div>
+        );
+      })}
+      {/* Totals */}
+      <div style={{ padding:'10px 16px', background:'#F9FAFB',
+        borderTop:'1px solid var(--border)', display:'flex', flexWrap:'wrap',
+        alignItems:'center', gap:8, justifyContent:'space-between' }}>
+        <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
+          <MacroBadge kind="prot"  label="Б"  value={`${fmt(totals.prot)}г`}/>
+          <MacroBadge kind="fat"   label="Ж"  value={`${fmt(totals.fat)}г`}/>
+          <MacroBadge kind="carbs" label="У"  value={`${fmt(totals.carbs)}г`}/>
+          <MacroBadge kind="kcal"  label="🔥" value={`${fmt(totals.cal)} ккал`}/>
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          {totals.hasApprox && (
+            <span style={{ fontSize:10, color:'var(--text-2)' }}>* на 100 г для товаров без веса</span>
+          )}
+          {totals.hasPrice && (
+            <span style={{ fontWeight:700, fontSize:15, whiteSpace:'nowrap' }}>
+              {totals.price} ₽
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════
    MAIN APP
    ═══════════════════════════════════════════════════════ */
 function App() {
@@ -740,6 +878,28 @@ function App() {
   const [filters,      setFilters]      = useState(DEFAULT_FILTERS);
   const [services,     setServices]     = useState([]);
   const [selSvcIds,    setSelSvcIds]    = useState([]); // [] = all selected
+
+  // Cart
+  const [cart, setCart] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('fh_cart') || '[]'); } catch { return []; }
+  });
+  const [showCartSheet, setShowCartSheet] = useState(false);
+
+  useEffect(() => {
+    try { localStorage.setItem('fh_cart', JSON.stringify(cart)); } catch {}
+  }, [cart]);
+
+  const cartIds = useMemo(() => new Set(cart.map(p => p.id)), [cart]);
+
+  const handleCartToggle = (product) => {
+    setCart(prev =>
+      prev.some(p => p.id === product.id)
+        ? prev.filter(p => p.id !== product.id)
+        : [...prev, product]
+    );
+  };
+
+  const handleCartRemove = (id) => setCart(prev => prev.filter(p => p.id !== id));
 
   // Debounce refs
   const textDebounceRef   = useRef(null);
@@ -813,7 +973,7 @@ function App() {
       clearTimeout(textDebounceRef.current);
       textDebounceRef.current = setTimeout(() => {
         doSearch(val, filters, selSvcIds, sort, 0);
-      }, 400);
+      }, 250);
     }
   };
 
@@ -824,7 +984,7 @@ function App() {
       clearTimeout(filterDebounceRef.current);
       filterDebounceRef.current = setTimeout(() => {
         doSearch(inputQ, nf, selSvcIds, sort, 0);
-      }, 400);
+      }, 250);
     }
   };
 
@@ -1028,7 +1188,8 @@ function App() {
         }}>
           {/* Desktop sidebar */}
           {!isMobile && (
-            <aside style={{ width:236, flexShrink:0, position:'sticky', top:72 }}>
+            <aside style={{ width:236, flexShrink:0, position:'sticky', top:72,
+              maxHeight:'calc(100vh - 88px)', overflowY:'auto' }}>
               <div style={{ background:'var(--surface)', borderRadius:'var(--r)',
                 padding:20, boxShadow:'var(--sh)' }}>
                 <FilterContent
@@ -1037,6 +1198,9 @@ function App() {
                   onSvcToggle={handleSvcToggle}
                   onReset={handleReset}
                   activeCount={activeFltCount}/>
+              </div>
+              <div style={{ marginTop:12 }}>
+                <CartPanel items={cart} onRemove={handleCartRemove} onOpen={setSelected}/>
               </div>
             </aside>
           )}
@@ -1069,7 +1233,8 @@ function App() {
                 <div style={{ display:'grid', gap:12,
                   gridTemplateColumns: isMobile ? '1fr' : 'repeat(2,1fr)' }}>
                   {products.map(p => (
-                    <ProductCard key={p.id} product={p} onClick={setSelected}/>
+                    <ProductCard key={p.id} product={p} onClick={setSelected}
+                      inCart={cartIds.has(p.id)} onCartToggle={handleCartToggle}/>
                   ))}
                 </div>
                 <Pagination page={page} total={totalPages} onPage={handlePage}/>
@@ -1147,6 +1312,37 @@ function App() {
             Показать результаты
           </button>
         </BottomSheet>
+      )}
+
+      {/* ── CART SHEET (mobile) ── */}
+      {showCartSheet && (
+        <BottomSheet onClose={() => setShowCartSheet(false)}>
+          <CartPanel items={cart} onRemove={handleCartRemove} onOpen={setSelected}/>
+          <button onClick={() => setShowCartSheet(false)}
+            style={{ width:'100%', marginTop:12, padding:14,
+              background:'var(--accent)', color:'#fff', border:'none',
+              borderRadius:10, fontSize:15, fontWeight:600, cursor:'pointer' }}>
+            Закрыть
+          </button>
+        </BottomSheet>
+      )}
+
+      {/* ── CART FAB (mobile) ── */}
+      {isMobile && isResultsView && (
+        <button onClick={() => setShowCartSheet(true)}
+          style={{
+            position:'fixed', bottom:24, right:20, zIndex:45,
+            background:'var(--accent)', color:'#fff',
+            border:'none', borderRadius:50, padding:'13px 18px',
+            fontSize:14, fontWeight:600, cursor:'pointer',
+            boxShadow:'0 4px 16px rgba(0,0,0,.2)',
+            display:'flex', alignItems:'center', gap:7,
+          }}>
+          <Ic.Cart s={18}/>
+          {cart.length > 0 && (
+            <span style={{ fontSize:13, fontWeight:700, lineHeight:1 }}>{cart.length}</span>
+          )}
+        </button>
       )}
 
     </div>

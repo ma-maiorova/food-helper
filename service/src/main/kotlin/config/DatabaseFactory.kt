@@ -16,10 +16,10 @@ object DatabaseFactory {
     fun init(environment: ApplicationEnvironment) {
         val cfg = environment.config
 
-        val jdbcUrl = System.getenv("DB_JDBC_URL")
+        val jdbcUrl = System.getenv("JDBC_URL")
             ?: cfg.property("ktor.database.jdbcUrl").getString()
-        val username = System.getenv("DB_USER") ?: cfg.property("ktor.database.username").getString()
-        val password = System.getenv("DB_PASSWORD") ?: cfg.property("ktor.database.password").getString()
+        val username = System.getenv("POSTGRES_USER") ?: cfg.property("ktor.database.username").getString()
+        val password = System.getenv("POSTGRES_PASSWORD") ?: cfg.property("ktor.database.password").getString()
 
         val dbConfig = DatabaseConfig(
             jdbcUrl = jdbcUrl,

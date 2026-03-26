@@ -736,7 +736,7 @@ function SortSelect({ value, onChange }) {
 /* ═══════════════════════════════════════════════════════
    CART PANEL
    ═══════════════════════════════════════════════════════ */
-function CartPanel({ items, onRemove, onOpen }) {
+function CartPanel({ items, onRemove, onOpen, onClear }) {
   const totals = useMemo(() => {
     let price = 0, cal = 0, prot = 0, fat = 0, carbs = 0;
     let hasPrice = false, hasApprox = false;
@@ -776,7 +776,8 @@ function CartPanel({ items, onRemove, onOpen }) {
     <div style={{ background:'var(--surface)', borderRadius:'var(--r)',
       boxShadow:'var(--sh)', marginBottom:20, overflow:'hidden' }}>
       {/* Header */}
-      <div style={{ padding:'10px 16px', borderBottom:'1px solid var(--border)' }}>
+      <div style={{ padding:'10px 16px', borderBottom:'1px solid var(--border)',
+        display:'flex', justifyContent:'space-between', alignItems:'center' }}>
         <span style={{ fontWeight:700, fontSize:14 }}>
           Корзина
           <span style={{ marginLeft:7, background:'var(--accent)', color:'#fff',
@@ -784,6 +785,13 @@ function CartPanel({ items, onRemove, onOpen }) {
             {items.length}
           </span>
         </span>
+        <button onClick={onClear}
+          style={{ background:'none', border:'none', cursor:'pointer', fontSize:12,
+            color:'var(--text-2)', padding:'2px 4px', borderRadius:5 }}
+          onMouseEnter={e => e.currentTarget.style.color='#EF4444'}
+          onMouseLeave={e => e.currentTarget.style.color='var(--text-2)'}>
+          Очистить
+        </button>
       </div>
       {/* Items */}
       {items.map((p, i) => {
@@ -900,6 +908,7 @@ function App() {
   };
 
   const handleCartRemove = (id) => setCart(prev => prev.filter(p => p.id !== id));
+  const handleCartClear  = () => setCart([]);
 
   // Debounce refs
   const textDebounceRef   = useRef(null);
@@ -1200,7 +1209,7 @@ function App() {
                   activeCount={activeFltCount}/>
               </div>
               <div style={{ marginTop:12 }}>
-                <CartPanel items={cart} onRemove={handleCartRemove} onOpen={setSelected}/>
+                <CartPanel items={cart} onRemove={handleCartRemove} onOpen={setSelected} onClear={handleCartClear}/>
               </div>
             </aside>
           )}
@@ -1317,7 +1326,7 @@ function App() {
       {/* ── CART SHEET (mobile) ── */}
       {showCartSheet && (
         <BottomSheet onClose={() => setShowCartSheet(false)}>
-          <CartPanel items={cart} onRemove={handleCartRemove} onOpen={setSelected}/>
+          <CartPanel items={cart} onRemove={handleCartRemove} onOpen={setSelected} onClear={handleCartClear}/>
           <button onClick={() => setShowCartSheet(false)}
             style={{ width:'100%', marginTop:12, padding:14,
               background:'var(--accent)', color:'#fff', border:'none',

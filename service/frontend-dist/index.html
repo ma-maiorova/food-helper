@@ -483,7 +483,7 @@ function ProductCard({ product, onClick, inCart, onCartToggle }) {
 /* ═══════════════════════════════════════════════════════
    PRODUCT DETAIL CONTENT
    ═══════════════════════════════════════════════════════ */
-function ProductDetailContent({ product, onClose }) {
+function ProductDetailContent({ product, onClose, inCart, onCartToggle, hideClose }) {
   const v0 = product.variants?.[0] || {};
   const n  = v0.nutrients || {};
   const multiVariants = product.variants?.length > 1;
@@ -514,11 +514,13 @@ function ProductDetailContent({ product, onClose }) {
             {price && <span>· {price}</span>}
           </div>
         </div>
-        <button onClick={onClose}
-          style={{ background:'#F3F4F6', border:'none', borderRadius:8,
-            padding:8, cursor:'pointer', color:'var(--text-2)', flexShrink:0 }}>
-          <Ic.X s={15}/>
-        </button>
+        {!hideClose && (
+          <button onClick={onClose}
+            style={{ background:'#F3F4F6', border:'none', borderRadius:8,
+              padding:8, cursor:'pointer', color:'var(--text-2)', flexShrink:0 }}>
+            <Ic.X s={15}/>
+          </button>
+        )}
       </div>
 
       {/* Calories block */}
@@ -575,16 +577,28 @@ function ProductDetailContent({ product, onClose }) {
       </div>
 
       {/* CTA */}
-      <a href={product.url} target="_blank" rel="noopener noreferrer"
-        style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8,
-          background:'var(--accent)', color:'#fff', padding:'14px 24px',
-          borderRadius:10, fontWeight:600, fontSize:15,
-          transition:'background .15s' }}
-        onMouseEnter={e => e.currentTarget.style.background='var(--accent-dk)'}
-        onMouseLeave={e => e.currentTarget.style.background='var(--accent)'}>
-        <Ic.Link/>
-        Перейти к товару в {product.deliveryService?.name}
-      </a>
+      <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+        <button onClick={() => onCartToggle(product)}
+          style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+            background: inCart ? 'var(--accent-lt)' : '#F3F4F6',
+            border: `1px solid ${inCart ? 'var(--accent)' : 'transparent'}`,
+            color: inCart ? 'var(--accent)' : 'var(--text)',
+            padding:'13px 24px', borderRadius:10, fontWeight:600, fontSize:15,
+            cursor:'pointer', transition:'all .15s', width:'100%' }}>
+          <Ic.Cart s={16}/>
+          {inCart ? 'В корзине' : '+ В корзину'}
+        </button>
+        <a href={product.url} target="_blank" rel="noopener noreferrer"
+          style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+            background:'var(--accent)', color:'#fff', padding:'13px 24px',
+            borderRadius:10, fontWeight:600, fontSize:15,
+            transition:'background .15s' }}
+          onMouseEnter={e => e.currentTarget.style.background='var(--accent-dk)'}
+          onMouseLeave={e => e.currentTarget.style.background='var(--accent)'}>
+          <Ic.Link/>
+          Перейти к товару в {product.deliveryService?.name}
+        </a>
+      </div>
     </div>
   );
 }
@@ -592,7 +606,7 @@ function ProductDetailContent({ product, onClose }) {
 /* ═══════════════════════════════════════════════════════
    MODAL (desktop)
    ═══════════════════════════════════════════════════════ */
-function ProductModal({ product, onClose }) {
+function ProductModal({ product, onClose, inCart, onCartToggle }) {
   useEffect(() => {
     const fn = e => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', fn);
@@ -610,7 +624,7 @@ function ProductModal({ product, onClose }) {
         maxHeight:'88vh', overflowY:'auto', zIndex:51,
         boxShadow:'var(--sh-xl)',
       }}>
-        <ProductDetailContent product={product} onClose={onClose}/>
+        <ProductDetailContent product={product} onClose={onClose} inCart={inCart} onCartToggle={onCartToggle}/>
       </div>
     </>
   );
@@ -627,11 +641,23 @@ function BottomSheet({ children, onClose }) {
       <div className="slide-up" style={{
         position:'fixed', bottom:0, left:0, right:0, zIndex:51,
         background:'var(--surface)', borderRadius:'20px 20px 0 0',
-        padding:'10px 20px 36px', maxHeight:'92vh', overflowY:'auto',
+        maxHeight:'92vh', display:'flex', flexDirection:'column',
       }}>
-        <div style={{ width:36, height:4, background:'#D1D5DB',
-          borderRadius:2, margin:'0 auto 20px' }}/>
-        {children}
+        {/* Фиксированная шапка — всегда видна */}
+        <div style={{ position:'relative', padding:'10px 20px 4px', flexShrink:0 }}>
+          <div style={{ width:36, height:4, background:'#D1D5DB',
+            borderRadius:2, margin:'0 auto' }}/>
+          <button onClick={onClose}
+            style={{ position:'absolute', top:6, right:16,
+              background:'#F3F4F6', border:'none', borderRadius:8,
+              padding:7, cursor:'pointer', color:'var(--text-2)', display:'flex' }}>
+            <Ic.X s={14}/>
+          </button>
+        </div>
+        {/* Скроллируемый контент */}
+        <div style={{ overflowY:'auto', flex:1, padding:'12px 20px 36px' }}>
+          {children}
+        </div>
       </div>
     </>
   );
@@ -1300,9 +1326,11 @@ function App() {
       {selected && (
         isMobile
           ? <BottomSheet onClose={() => setSelected(null)}>
-              <ProductDetailContent product={selected} onClose={() => setSelected(null)}/>
+              <ProductDetailContent product={selected} onClose={() => setSelected(null)}
+                inCart={cartIds.has(selected.id)} onCartToggle={handleCartToggle} hideClose/>
             </BottomSheet>
-          : <ProductModal product={selected} onClose={() => setSelected(null)}/>
+          : <ProductModal product={selected} onClose={() => setSelected(null)}
+              inCart={cartIds.has(selected.id)} onCartToggle={handleCartToggle}/>
       )}
 
       {/* ── FILTER SHEET (mobile) ── */}

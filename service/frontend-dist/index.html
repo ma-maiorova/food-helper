@@ -617,7 +617,7 @@ function ProductModal({ product, onClose, inCart, onCartToggle }) {
       <div onClick={onClose} style={{ position:'fixed', inset:0,
         background:'rgba(0,0,0,.4)', backdropFilter:'blur(3px)', zIndex:50 }}/>
       <div className="fade-in" style={{
-        position:'fixed', top:'14vh', left:'calc(50% - 220px)',
+        position:'fixed', top:'6vh', left:'calc(50% - 220px)',
         transform:'translateX(-50%)',
         background:'var(--surface)', borderRadius:16, padding:28,
         width:'min(500px, calc(100vw - 32px))',
@@ -655,7 +655,7 @@ function BottomSheet({ children, onClose }) {
           </button>
         </div>
         {/* Скроллируемый контент */}
-        <div style={{ overflowY:'auto', flex:1, padding:'12px 20px 36px' }}>
+        <div style={{ overflowY:'auto', flex:1, minHeight:0, padding:'12px 20px 36px' }}>
           {children}
         </div>
       </div>

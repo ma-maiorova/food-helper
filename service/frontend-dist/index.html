@@ -36,14 +36,17 @@
 
     /* ── RESET ──────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { scroll-behavior: smooth; }
+    html { scroll-behavior: smooth; overflow-x: hidden; max-width: 100%; }
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
       -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+      max-width: 100%;
     }
+    #root { overflow-x: hidden; max-width: 100%; }
     a { color: inherit; text-decoration: none; }
     button { font-family: inherit; }
 
@@ -496,7 +499,7 @@ function ProductDetailContent({ product, onClose, inCart, onCartToggle, hideClos
   ];
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', gap:18 }}>
+    <div style={{ display:'flex', flexDirection:'column', gap:18, minWidth:0, maxWidth:'100%', overflowX:'hidden' }}>
       {/* Title row */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:8 }}>
         <div style={{ flex:1 }}>
@@ -571,7 +574,8 @@ function ProductDetailContent({ product, onClose, inCart, onCartToggle, hideClos
           Состав
         </p>
         <p style={{ fontSize:14, lineHeight:'1.6',
-          color: v0.composition ? 'var(--text)' : '#C0C4CC' }}>
+          color: v0.composition ? 'var(--text)' : '#C0C4CC',
+          wordBreak:'break-word', overflowWrap:'anywhere' }}>
           {v0.composition || 'Состав не указан'}
         </p>
       </div>
@@ -641,7 +645,8 @@ function BottomSheet({ children, onClose }) {
       <div className="slide-up" style={{
         position:'fixed', bottom:0, left:0, right:0, zIndex:51,
         background:'var(--surface)', borderRadius:'20px 20px 0 0',
-        maxHeight:'92vh', display:'flex', flexDirection:'column',
+        maxHeight:'92dvh', display:'flex', flexDirection:'column',
+        width:'100%', maxWidth:'100vw', overflow:'hidden',
       }}>
         {/* Фиксированная шапка — всегда видна */}
         <div style={{ position:'relative', padding:'10px 20px 4px', flexShrink:0 }}>
@@ -655,7 +660,8 @@ function BottomSheet({ children, onClose }) {
           </button>
         </div>
         {/* Скроллируемый контент */}
-        <div style={{ overflowY:'auto', flex:1, minHeight:0, padding:'12px 20px 36px' }}>
+        <div style={{ overflowY:'auto', overflowX:'hidden', flex:1, minHeight:0,
+          padding:'12px 20px 36px', WebkitOverflowScrolling:'touch' }}>
           {children}
         </div>
       </div>
@@ -935,6 +941,12 @@ function App() {
 
   const handleCartRemove = (id) => setCart(prev => prev.filter(p => p.id !== id));
   const handleCartClear  = () => setCart([]);
+
+  const openProduct = useCallback((product) => {
+    setShowCartSheet(false);
+    setShowFltSheet(false);
+    setSelected(product);
+  }, []);
 
   // Debounce refs
   const textDebounceRef   = useRef(null);
@@ -1268,7 +1280,7 @@ function App() {
                 <div style={{ display:'grid', gap:12,
                   gridTemplateColumns: isMobile ? '1fr' : 'repeat(2,1fr)' }}>
                   {products.map(p => (
-                    <ProductCard key={p.id} product={p} onClick={setSelected}
+                    <ProductCard key={p.id} product={p} onClick={openProduct}
                       inCart={cartIds.has(p.id)} onCartToggle={handleCartToggle}/>
                   ))}
                 </div>
@@ -1354,7 +1366,7 @@ function App() {
       {/* ── CART SHEET (mobile) ── */}
       {showCartSheet && (
         <BottomSheet onClose={() => setShowCartSheet(false)}>
-          <CartPanel items={cart} onRemove={handleCartRemove} onOpen={setSelected} onClear={handleCartClear}/>
+          <CartPanel items={cart} onRemove={handleCartRemove} onOpen={openProduct} onClear={handleCartClear}/>
           <button onClick={() => setShowCartSheet(false)}
             style={{ width:'100%', marginTop:12, padding:14,
               background:'var(--accent)', color:'#fff', border:'none',

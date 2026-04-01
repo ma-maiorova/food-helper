@@ -10,6 +10,14 @@
 #
 # Monitoring запускается отдельно:
 #   docker compose -f monitoring/docker-compose.yml --env-file .env.local up -d
+#
+# Парсер (parser-scheduler):
+#   Запускается вместе со стеком, работает как демон.
+#   Cron-джоба стартует каждую ночь в 00:00 UTC.
+#   Ручной запуск:
+#     docker compose --env-file .env.prod exec parser-scheduler /app/run_pipeline.sh
+#   Переменные: FOOD_HELPER_API_URL, FOOD_HELPER_API_KEY (см. .env.example),
+#     PARSER_PRODUCT_COUNT, PARSER_SITES, PARSER_LINK_PAGES, PARSER_BATCH_SIZE
 
 services:
   postgres:
@@ -73,6 +81,34 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  parser-scheduler:
+    build:
+      context: ../parser_v3
+      dockerfile: Dockerfile
+    container_name: food_helper_parser_scheduler
+    entrypoint: ["/scheduler_entrypoint.sh"]
+    environment:
+      # URL эндпоинта импорта — изнутри docker-сети обращаемся напрямую к api
+      FOOD_HELPER_API_URL: ${FOOD_HELPER_API_URL:-http://api:8080/api/v1/admin/import}
+      # Ключ должен совпадать с ADMIN_API_KEY сервиса
+      FOOD_HELPER_API_KEY: ${FOOD_HELPER_API_KEY}
+      # Сайты для парсинга (через пробел)
+      PARSER_SITES: ${PARSER_SITES:-vkusvill lavka}
+      # Кол-во продуктов на сайт за один прогон
+      PARSER_PRODUCT_COUNT: ${PARSER_PRODUCT_COUNT:-1000}
+      # Кол-во страниц при сборе ссылок
+      PARSER_LINK_PAGES: ${PARSER_LINK_PAGES:-55}
+      # Размер батча при выгрузке в API
+      PARSER_BATCH_SIZE: ${PARSER_BATCH_SIZE:-200}
+    volumes:
+      - parser_data:/app/data
+    networks:
+      - app_net
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
 networks:
   app_net:
     name: food_helper_net
@@ -82,3 +118,5 @@ volumes:
     name: food_helper_pgdata
   nginx_logs:
     name: food_helper_nginx_logs
+  parser_data:
+    name: food_helper_parser_data

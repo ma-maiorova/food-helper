@@ -1,0 +1,37 @@
+erDiagram
+    delivery_service ||--o{ product : "1 : N"
+    product ||--o{ product_variant : "1 : N"
+
+    delivery_service {
+        bigint id PK
+        varchar code UK "64"
+        varchar name "255"
+        varchar site_url "512, nullable"
+        varchar logo_url "512, nullable"
+        boolean active "default true"
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    product {
+        bigint id PK
+        varchar name "512"
+        varchar url "1024"
+        int price
+        varchar currency "8, default RUB"
+        bigint delivery_service_id FK
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    product_variant {
+        bigint id PK
+        bigint product_id FK "on delete CASCADE"
+        varchar manufacturer "255, nullable"
+        text composition "nullable"
+        int weight "nullable"
+        int calories "nullable"
+        double protein "nullable"
+        double fat "nullable"
+        double carbs "nullable"
+    }

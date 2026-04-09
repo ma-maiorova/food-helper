@@ -8,7 +8,7 @@ from states.filter_states import FilterStates
 
 from handlers.start import cmd_delivery
 
-service = ProductService("data/products.csv")
+service = ProductService()
 router = Router()
 
 NUTRIENT_MAP = {
@@ -44,29 +44,42 @@ async def input_range_handler(message, state: FSMContext):
         filters = data.get("filters", {})
         filters[nutrient] = (min_val, max_val)
         await state.update_data(filters=filters)
-        # await state.clear()
     except Exception as e:
         print(e)
         await message.answer("Неверный формат! Введите диапазон min-max, например 100-400")
         return
 
-    await message.answer("Выберите следующий фильтр или нажмите поиск:",
-                         reply_markup=get_filters_kb(filters))
+    await message.answer(
+        "Выберите следующий фильтр или нажмите поиск:",
+        reply_markup=get_filters_kb(filters),
+    )
 
 
 @router.callback_query(lambda c: c.data == "search_products")
 async def search_products_handler(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     filters = data.get("filters", {})
+    deliveries = data.get("deliveries", {})
 
-    products = service.filter_products(**filters)
+    # Собираем ID только включённых служб
+    active_ids = [v["id"] for v in deliveries.values() if not v["excluded"]]
 
-    if len(products) == 0:
-        text = "Продуктов не найдено, измените диапазоны фильтрации"
-        await callback.answer(text)
+    try:
+        page = await service.search_products(
+            page=0,
+            delivery_service_ids=active_ids or None,
+            **filters,
+        )
+    except Exception as e:
+        print(e)
+        await callback.answer("Ошибка при обращении к серверу, попробуйте позже")
+        return
+
+    if page.total_elements == 0:
+        await callback.answer("Продуктов не найдено, измените диапазоны фильтрации")
     else:
-        await state.update_data(filtered_products=products)
-        await show_products(callback.message, products, page=0)
+        await state.update_data(filters_snapshot=filters, active_ids=active_ids)
+        await show_products(callback.message, page)
         await callback.answer()
 
 
@@ -84,4 +97,4 @@ async def clear_filters_handler(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == "/delivery")
 async def delivery_handler(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    await cmd_delivery(callback.message, data.get("deliveries", {}))
+    await cmd_delivery(callback.message, state, deliveries=data.get("deliveries"))

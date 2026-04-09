@@ -1,13 +1,15 @@
 from aiogram import Router
 from keyboards.pagination_kb import pagination_kb
-from utils import calculate_pagination, format_products_text
+from services.models import ProductPage
+from utils import format_products_text
 
 router = Router()
 
 
-async def show_products(msg, products, page=0):
-    start, end, total_pages, current_page = calculate_pagination(
-        products, page)
-    text = format_products_text(products, start, end)
-
-    await msg.answer(text, reply_markup=pagination_kb(current_page, total_pages))
+async def show_products(msg, page: ProductPage):
+    """Отображает страницу продуктов с клавиатурой пагинации."""
+    text = format_products_text(page.items)
+    await msg.answer(
+        text,
+        reply_markup=pagination_kb(page.page, page.total_pages),
+    )

@@ -1,91 +1,109 @@
-from collections import defaultdict
-import csv
-import pandas as pd
-from services.models import ProductItem, ProductVariant, Nutrients
+import aiohttp
+from config import settings
+from services.models import (
+    DeliveryService, Nutrients, ProductItem,
+    ProductPage, ProductVariant,
+)
+
+
+def _parse_delivery_service(data: dict) -> DeliveryService:
+    return DeliveryService(
+        id=data["id"],
+        code=data["code"],
+        name=data["name"],
+        site_url=data.get("siteUrl"),
+        logo_url=data.get("logoUrl"),
+        active=data.get("active", True),
+    )
+
+
+def _parse_nutrients(data: dict) -> Nutrients:
+    return Nutrients(
+        calories=data.get("calories"),
+        protein=data.get("protein"),
+        fat=data.get("fat"),
+        carbs=data.get("carbs"),
+    )
+
+
+def _parse_variant(data: dict) -> ProductVariant:
+    return ProductVariant(
+        id=data["id"],
+        nutrients=_parse_nutrients(data["nutrients"]),
+        manufacturer=data.get("manufacturer"),
+        composition=data.get("composition"),
+        weight=data.get("weight"),
+    )
+
+
+def _parse_product(data: dict) -> ProductItem:
+    return ProductItem(
+        id=data["id"],
+        name=data["name"],
+        url=data["url"],
+        price=data["price"],
+        currency=data.get("currency", "RUB"),
+        delivery_service=_parse_delivery_service(data["deliveryService"]),
+        variants=[_parse_variant(v) for v in data.get("variants") or []],
+    )
 
 
 class ProductService:
-    """Работа с данными, когда придет время заменим на API-запросы."""
+    """Работа с данными через REST API."""
 
-    def __init__(self, source_path: str):
-        self.source_path = source_path
-        self.products = self._load(source_path)
+    BASE_URL = settings.api_base_url
 
-    def _load(self, path: str) -> list[ProductItem]:
-        """Загружает продукты из CSV и группирует варианты по url."""
+    async def get_delivery_services(self) -> list[DeliveryService]:
+        """Возвращает список всех активных служб доставки."""
+        url = f"{self.BASE_URL}/api/v1/delivery-services"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, params={"active": "true"}) as response:
+                response.raise_for_status()
+                data = await response.json()
+                return [_parse_delivery_service(item) for item in data]
 
-        products_map = defaultdict(list)
-
-        with open(path, encoding="utf-8") as file:
-            reader = csv.DictReader(file)
-
-            for row in reader:
-                url = row["url"].strip()
-                name = row["name"].strip()
-                price = float(row["price"])
-
-                nutrients = Nutrients(
-                    calories=self._to_num(row.get("calories")),
-                    protein=self._to_num(row.get("protein")),
-                    fat=self._to_num(row.get("fat")),
-                    carbs=self._to_num(row.get("carbs")),
-                )
-
-                variant = ProductVariant(
-                    nutrients=nutrients,
-                    manufacturer=row.get("manufacturer") or None,
-                    composition=row.get("composition") or None,
-                )
-
-                products_map[url].append((name, price, variant))
-
-        products = []
-        for url, entries in products_map.items():
-            name = entries[0][0]
-            price = entries[0][1]
-            variants = [v for (_, _, v) in entries]
-
-            products.append(ProductItem(
-                name=name,
-                url=url,
-                price=price,
-                variants=variants
-            ))
-
-        return products
-
-    def _to_num(self, value):
-        """Переводит текст во float или int / возвращает None."""
-        if not value or value.strip() == "":
-            return None
-        try:
-            num = float(value.replace(",", "."))
-            return int(num) if num.is_integer() else num
-        except ValueError:
-            return None
-
-    def filter_products(
+    async def search_products(
         self,
+        page: int = 0,
+        size: int = 2,
+        delivery_service_ids: list[int] | None = None,
         calories: tuple[int, int] | None = None,
         protein: tuple[int, int] | None = None,
         fat: tuple[int, int] | None = None,
         carbs: tuple[int, int] | None = None,
-    ) -> list[ProductItem]:
+    ) -> ProductPage:
+        """Ищет продукты с фильтрацией и пагинацией на стороне бэкенда."""
+        url = f"{self.BASE_URL}/api/v1/products"
 
-        def check(val, rng):
-            return (rng is None) or (val and rng[0] <= val <= rng[1])
+        params: dict = {"page": page, "size": size}
 
-        result = []
-        for p in self.products:
-            for v in p.variants:
-                if not check(v.nutrients.calories, calories):
-                    continue
-                if not check(v.nutrients.protein, protein):
-                    continue
-                if not check(v.nutrients.fat, fat):
-                    continue
-                if not check(v.nutrients.carbs, carbs):
-                    continue
-                result.append(p)
-                break
-        return result
+        # API принимает deliveryServiceIds как строку вида "1,2,3"
+        if delivery_service_ids:
+            params["deliveryServiceIds"] = ",".join(
+                str(i) for i in delivery_service_ids)
+
+        for name, val in [
+            ("minCalories", calories[0] if calories else None),
+            ("maxCalories", calories[1] if calories else None),
+            ("minProtein",  protein[0] if protein else None),
+            ("maxProtein",  protein[1] if protein else None),
+            ("minFat",      fat[0] if fat else None),
+            ("maxFat",      fat[1] if fat else None),
+            ("minCarbs",    carbs[0] if carbs else None),
+            ("maxCarbs",    carbs[1] if carbs else None),
+        ]:
+            if val is not None:
+                params[name] = val
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, params=params) as response:
+                response.raise_for_status()
+                data = await response.json()
+
+        return ProductPage(
+            items=[_parse_product(p) for p in data["items"]],
+            page=data["page"],
+            size=data["size"],
+            total_elements=data["totalElements"],
+            total_pages=data["totalPages"],
+        )

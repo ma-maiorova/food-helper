@@ -2,28 +2,40 @@ from aiogram import Router
 from aiogram.types import CallbackQuery
 from aiogram.fsm.context import FSMContext
 from keyboards.pagination_kb import pagination_kb
-from utils import calculate_pagination, format_products_text
+from services.product_service import ProductService
+from utils import format_products_text
 
+service = ProductService()
 router = Router()
 
 
 @router.callback_query(lambda c: c.data and c.data.startswith("page_"))
 async def pagination_handler(callback: CallbackQuery, state: FSMContext):
-    page = int(callback.data.split("_")[1])
+    page_num = int(callback.data.split("_")[1])
 
     data = await state.get_data()
-    products = data.get("filtered_products", [])
+    filters = data.get("filters_snapshot", {})
+    active_ids = data.get("active_ids")
 
-    if not products:
+    try:
+        page = await service.search_products(
+            page=page_num,
+            delivery_service_ids=active_ids or None,
+            **filters,
+        )
+    except Exception as e:
+        print(e)
+        await callback.answer("Ошибка при обращении к серверу, попробуйте позже")
+        return
+
+    if not page.items:
         await callback.answer("Нет продуктов для отображения")
         return
 
-    start, end, total_pages, current_page = calculate_pagination(
-        products, page)
-    text = format_products_text(products, start, end)
+    text = format_products_text(page.items)
 
     await callback.message.edit_text(
         text=text,
-        reply_markup=pagination_kb(current_page, total_pages)
+        reply_markup=pagination_kb(page.page, page.total_pages),
     )
     await callback.answer()

@@ -1,0 +1,47 @@
+# Индексы под запросы: поиск по названию (pg_trgm), фильтры по КБЖУ (составные).
+# 001 уже создаёт: idx_product_delivery_service, idx_product_name (btree), по одному полю в variant.
+databaseChangeLog:
+  - changeSet:
+      id: 003-pg-trgm-extension
+      author: ma-maiorova
+      changes:
+        - sql:
+            sql: CREATE EXTENSION IF NOT EXISTS pg_trgm;
+            splitStatements: false
+      comment: Расширение для поиска по подстроке (ILIKE / LIKE с индексом)
+
+  - changeSet:
+      id: 003-product-name-search-gin
+      author: ma-maiorova
+      changes:
+        - sql:
+            sql: CREATE INDEX IF NOT EXISTS idx_product_name_lower_gin ON product USING gin (lower(name) gin_trgm_ops);
+            splitStatements: false
+      comment: Поиск по названию - lower(name) и LIKE/ILIKE через trigram (GIN)
+
+  - changeSet:
+      id: 003-variant-product-calories
+      author: ma-maiorova
+      changes:
+        - sql:
+            sql: CREATE INDEX IF NOT EXISTS idx_variant_product_calories ON product_variant(product_id, calories);
+            splitStatements: false
+      comment: Под выбор вариантов по product_id с фильтром по калориям
+
+  - changeSet:
+      id: 003-variant-calories-protein
+      author: ma-maiorova
+      changes:
+        - sql:
+            sql: CREATE INDEX IF NOT EXISTS idx_variant_calories_protein ON product_variant(calories, protein);
+            splitStatements: false
+      comment: Частый фильтр - диапазоны калорий и белка
+
+  - changeSet:
+      id: 003-variant-calories-fat
+      author: ma-maiorova
+      changes:
+        - sql:
+            sql: CREATE INDEX IF NOT EXISTS idx_variant_calories_fat ON product_variant(calories, fat);
+            splitStatements: false
+      comment: Частый фильтр - калории + жиры

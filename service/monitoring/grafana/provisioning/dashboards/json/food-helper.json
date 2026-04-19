@@ -1,0 +1,328 @@
+{
+  "annotations": { "list": [] },
+  "description": "Food Helper — метрики поиска, импорта и здоровья сервиса",
+  "editable": true,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }, "id": 1, "title": "Здоровье сервиса", "type": "row" },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus-food-helper" },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+      "id": 2,
+      "title": "Readiness",
+      "type": "stat",
+      "options": { "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [{ "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } }, "type": "value" }],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+        }
+      },
+      "targets": [{ "expr": "up{job=\"food-helper\"}", "legendFormat": "ready" }]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus-food-helper" },
+      "gridPos": { "h": 4, "w": 5, "x": 4, "y": 1 },
+      "id": 3,
+      "title": "HTTP p95 латентность (все маршруты)",
+      "type": "stat",
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": { "defaults": { "unit": "ms", "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 200 }, { "color": "red", "value": 1000 }] } } },
+      "targets": [{ "expr": "max(ktor_http_server_requests_seconds{quantile=\"0.95\"}) * 1000", "legendFormat": "p95" }]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus-food-helper" },
+      "gridPos": { "h": 4, "w": 5, "x": 9, "y": 1 },
+      "id": 4,
+      "title": "HTTP 4xx / 5xx (rate/min)",
+      "type": "stat",
+      "options": { "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": { "defaults": { "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 0.1 }, { "color": "red", "value": 1 }] } } },
+      "targets": [
+        { "expr": "sum(rate(ktor_http_server_requests_seconds_count{status=~\"4..\"}[1m]))", "legendFormat": "4xx" },
+        { "expr": "sum(rate(ktor_http_server_requests_seconds_count{status=~\"5..\"}[1m]))", "legendFormat": "5xx" }
+      ]
+    },
+
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 }, "id": 10, "title": "Поиск", "type": "row" },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus-food-helper" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "id": 11,
+      "title": "Поисковые запросы (с q / без q)",
+      "type": "timeseries",
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "fieldConfig": { "defaults": { "custom": { "lineWidth": 2, "fillOpacity": 10, "drawStyle": "line" }, "unit": "reqps" } },
+      "targets": [
+        { "expr": "sum(rate(product_search_requests_total{has_query=\"true\"}[5m]))", "legendFormat": "с q" },
+        { "expr": "sum(rate(product_search_requests_total{has_query=\"false\"}[5m]))", "legendFormat": "без q" }
+      ]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus-food-helper" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "id": 12,
+      "title": "Поиск: пустые результаты (rate/s)",
+      "type": "timeseries",
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "fieldConfig": { "defaults": { "custom": { "lineWidth": 2, "fillOpacity": 10, "drawStyle": "line" }, "unit": "reqps" } },
+      "targets": [
+        { "expr": "rate(product_search_empty_results_total[5m])", "legendFormat": "empty results/s" }
+      ]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus-food-helper" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "id": 13,
+      "title": "Поиск: p50 / p95 / p99 латентность",
+      "type": "timeseries",
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "fieldConfig": { "defaults": { "custom": { "lineWidth": 2, "drawStyle": "line" }, "unit": "ms" } },
+      "targets": [
+        { "expr": "ktor_http_server_requests_seconds{route=\"/api/v1/products\", status=\"200\", quantile=\"0.5\"} * 1000", "legendFormat": "p50" },
+        { "expr": "ktor_http_server_requests_seconds{route=\"/api/v1/products\", status=\"200\", quantile=\"0.95\"} * 1000", "legendFormat": "p95" },
+        { "expr": "ktor_http_server_requests_seconds{route=\"/api/v1/products\", status=\"200\", quantile=\"0.99\"} * 1000", "legendFormat": "p99" }
+      ]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus-food-helper" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "id": 14,
+      "title": "HTTP 4xx/5xx по маршрутам",
+      "type": "timeseries",
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "fieldConfig": { "defaults": { "custom": { "lineWidth": 2, "drawStyle": "line" }, "unit": "reqps" } },
+      "targets": [
+        { "expr": "sum by (route, status) (rate(ktor_http_server_requests_seconds_count{status=~\"[45]..\"}[5m]))", "legendFormat": "{{status}} {{route}}" }
+      ]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus-food-helper" },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 22 },
+      "id": 15,
+      "title": "Поиск: p50 (текущее)",
+      "type": "stat",
+      "options": { "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 100 }, { "color": "red", "value": 500 }] }
+        }
+      },
+      "targets": [
+        { "expr": "ktor_http_server_requests_seconds{route=\"/api/v1/products\", status=\"200\", quantile=\"0.5\"} * 1000", "legendFormat": "p50" }
+      ]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus-food-helper" },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 22 },
+      "id": 16,
+      "title": "Поиск: p90 (текущее)",
+      "type": "stat",
+      "options": { "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 200 }, { "color": "red", "value": 1000 }] }
+        }
+      },
+      "targets": [
+        { "expr": "ktor_http_server_requests_seconds{route=\"/api/v1/products\", status=\"200\", quantile=\"0.9\"} * 1000", "legendFormat": "p90" }
+      ]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus-food-helper" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 22 },
+      "id": 17,
+      "title": "Поиск: HTTP ошибки (4xx/5xx)",
+      "type": "timeseries",
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "fieldConfig": {
+        "defaults": { "custom": { "lineWidth": 2, "drawStyle": "bars", "fillOpacity": 60 }, "unit": "reqps" },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": "5xx.*" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] },
+          { "matcher": { "id": "byRegexp", "options": "4xx.*" }, "properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }
+        ]
+      },
+      "targets": [
+        { "expr": "sum(rate(ktor_http_server_requests_seconds_count{route=\"/api/v1/products\", status=~\"4..\"}[5m]))", "legendFormat": "4xx" },
+        { "expr": "sum(rate(ktor_http_server_requests_seconds_count{route=\"/api/v1/products\", status=~\"5..\"}[5m]))", "legendFormat": "5xx" }
+      ]
+    },
+
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 30 }, "id": 20, "title": "Импорт", "type": "row" },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus-food-helper" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 31 },
+      "id": 21,
+      "title": "Импорт: запросы по службе доставки (rate/s)",
+      "type": "timeseries",
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "fieldConfig": { "defaults": { "custom": { "lineWidth": 2, "fillOpacity": 10, "drawStyle": "line" }, "unit": "reqps" } },
+      "targets": [
+        { "expr": "sum by (delivery_service) (rate(product_import_requests_total[5m]))", "legendFormat": "{{delivery_service}}" }
+      ]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus-food-helper" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 31 },
+      "id": 22,
+      "title": "Импорт: создано / обновлено / failed (rate/s)",
+      "type": "timeseries",
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "fieldConfig": { "defaults": { "custom": { "lineWidth": 2, "fillOpacity": 10, "drawStyle": "line" }, "unit": "itemps" } },
+      "targets": [
+        { "expr": "sum(rate(product_import_created_items_total[5m]))", "legendFormat": "created" },
+        { "expr": "sum(rate(product_import_updated_items_total[5m]))", "legendFormat": "updated" },
+        { "expr": "sum(rate(product_import_failed_items_total[5m]))", "legendFormat": "failed" }
+      ]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus-food-helper" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 39 },
+      "id": 23,
+      "title": "Импорт: created / updated по службе доставки",
+      "type": "timeseries",
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "fieldConfig": { "defaults": { "custom": { "lineWidth": 2, "drawStyle": "bars", "fillOpacity": 80 }, "unit": "short" } },
+      "targets": [
+        { "expr": "sum by (delivery_service) (rate(product_import_created_items_total[5m]))", "legendFormat": "created {{delivery_service}}" },
+        { "expr": "sum by (delivery_service) (rate(product_import_updated_items_total[5m]))", "legendFormat": "updated {{delivery_service}}" }
+      ]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus-food-helper" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 39 },
+      "id": 24,
+      "title": "Импорт: топ кодов ошибок",
+      "type": "timeseries",
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "fieldConfig": { "defaults": { "custom": { "lineWidth": 2, "drawStyle": "line" }, "unit": "short" } },
+      "targets": [
+        { "expr": "sum by (error_code) (rate(product_import_failed_items_total[5m]))", "legendFormat": "{{error_code}}" }
+      ]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus-food-helper" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 47 },
+      "id": 25,
+      "title": "Импорт: дубли URL в батче (дедупликация)",
+      "type": "timeseries",
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "fieldConfig": { "defaults": { "custom": { "lineWidth": 2, "drawStyle": "line" }, "unit": "short" } },
+      "targets": [
+        { "expr": "sum by (delivery_service) (rate(product_import_duplicate_overridden_total[5m]))", "legendFormat": "{{delivery_service}}" }
+      ]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus-food-helper" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 47 },
+      "id": 26,
+      "title": "Импорт: распределение размеров батча (p50/p75/p90/p95)",
+      "type": "timeseries",
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "fieldConfig": { "defaults": { "custom": { "lineWidth": 2, "drawStyle": "line" }, "unit": "short" } },
+      "targets": [
+        { "expr": "product_import_batch_size{quantile=\"0.5\"}", "legendFormat": "p50" },
+        { "expr": "product_import_batch_size{quantile=\"0.75\"}", "legendFormat": "p75" },
+        { "expr": "product_import_batch_size{quantile=\"0.9\"}", "legendFormat": "p90" },
+        { "expr": "product_import_batch_size{quantile=\"0.95\"}", "legendFormat": "p95" }
+      ]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus-food-helper" },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 55 },
+      "id": 29,
+      "title": "Импорт: размер батча p50 (текущее)",
+      "type": "stat",
+      "options": { "colorMode": "value", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 100 }, { "color": "red", "value": 400 }] }
+        }
+      },
+      "targets": [
+        { "expr": "product_import_batch_size{quantile=\"0.5\"}", "legendFormat": "p50 items" }
+      ]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus-food-helper" },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 55 },
+      "id": 30,
+      "title": "Импорт: размер батча p90 (текущее)",
+      "type": "stat",
+      "options": { "colorMode": "value", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 200 }, { "color": "red", "value": 450 }] }
+        }
+      },
+      "targets": [
+        { "expr": "product_import_batch_size{quantile=\"0.9\"}", "legendFormat": "p90 items" }
+      ]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus-food-helper" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 59 },
+      "id": 27,
+      "title": "Импорт: p50 / p95 латентность батча",
+      "type": "timeseries",
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "fieldConfig": { "defaults": { "custom": { "lineWidth": 2, "drawStyle": "line" }, "unit": "ms" } },
+      "targets": [
+        { "expr": "product_import_duration_seconds{quantile=\"0.5\"} * 1000", "legendFormat": "p50 {{delivery_service}}" },
+        { "expr": "product_import_duration_seconds{quantile=\"0.95\"} * 1000", "legendFormat": "p95 {{delivery_service}}" }
+      ]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus-food-helper" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 59 },
+      "id": 28,
+      "title": "Импорт: ошибки по службе и коду (таблица)",
+      "type": "table",
+      "options": { "sortBy": [{ "displayName": "Value", "desc": true }] },
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "targets": [
+        { "expr": "sum by (delivery_service, error_code) (increase(product_import_failed_items_total[$__range]))", "legendFormat": "{{delivery_service}} / {{error_code}}", "instant": true }
+      ]
+    }
+
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "tags": ["food-helper"],
+  "templating": { "list": [] },
+  "time": { "from": "now-3h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Food Helper API",
+  "uid": "food-helper-v2",
+  "version": 4
+}

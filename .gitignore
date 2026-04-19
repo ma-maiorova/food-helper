@@ -1,0 +1,85 @@
+# --- IDE и редакторы ---
+.idea/
+*.iml
+*.ipr
+*.iws
+.cursor/
+.vscode/
+*.swp
+*.swo
+*~
+
+# --- Gradle ---
+.gradle/
+service/.gradle
+**/.gradle/
+**/build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/**/build/
+
+# --- JVM / Kotlin ---
+out/
+target/
+*.class
+*.jar
+!gradle-wrapper.jar
+*.war
+*.ear
+*.log
+hs_err_pid*
+
+# --- ОС ---
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# --- Локальные конфиги и секреты ---
+.env
+.env.local
+.env.prod
+.env.*.local
+*.local
+local.properties
+secrets/
+*.key
+*.pem
+
+# --- Временные и кэш ---
+*.tmp
+*.temp
+*.bak
+*.cache
+.cache/
+tmp/
+temp/
+TEMP/
+
+# --- Архивы (если не хранить в репозитории) ---
+*.zip
+*.tar
+*.tar.gz
+*.rar
+
+# --- Логи ---
+logs/
+*.log
+log/
+
+# --- Прочее ---
+*.pid
+*.seed
+*.pid.lock
+.npm
+.node_repl_history
+
+README_CURRENT_STATE.md
+service/out.csv
+service/src/main/resources/application-local.conf
+
+**/.gradle/
+**/build/
+**/.idea/
+*.iml

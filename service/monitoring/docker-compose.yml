@@ -1,0 +1,64 @@
+# Запуск (из каталога service/):
+#   local: docker compose -f monitoring/docker-compose.yml --env-file .env.local up -d
+#   prod:  docker compose -f monitoring/docker-compose.yml --env-file .env.prod  up -d
+#
+# Требует запущенного основного стека (docker-compose.yml).
+# Prometheus достигает food_helper_api через общую сеть food_helper_net.
+#
+# Порты:
+#   Prometheus → ${PROMETHEUS_BIND_HOST}:${PROMETHEUS_PORT}:9090
+#   Grafana    → ${GRAFANA_BIND_HOST}:${GRAFANA_PORT}:3000
+#
+# Prod SSH-туннели:
+#   ssh -L 9090:127.0.0.1:9090 user@vps  → localhost:9090 (Prometheus)
+#   ssh -L 3000:127.0.0.1:3000 user@vps  → localhost:3000 (Grafana)
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.53.1
+    container_name: food_helper_prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=7d"
+      - "--web.console.libraries=/etc/prometheus/console_libraries"
+      - "--web.console.templates=/etc/prometheus/consoles"
+      - "--web.enable-lifecycle"
+    ports:
+      - "${PROMETHEUS_BIND_HOST:-127.0.0.1}:${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./prometheus/prometheus-docker.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - app_net
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: food_helper_grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/provisioning/dashboards/json/food-helper.json
+    ports:
+      - "${GRAFANA_BIND_HOST:-127.0.0.1}:${GRAFANA_PORT:-3000}:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    networks:
+      - app_net
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+networks:
+  app_net:
+    external: true
+    name: food_helper_net
+
+volumes:
+  prometheus_data:
+    name: food_helper_prometheus_data
+  grafana_data:
+    name: food_helper_grafana_data

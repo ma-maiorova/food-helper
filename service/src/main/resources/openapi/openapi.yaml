@@ -1,0 +1,1194 @@
+openapi: 3.0.3
+info:
+  title: Food Helper API
+  description: |
+    REST API для поиска продуктов питания по КБЖУ из сервисов доставки (ВкусВилл, Яндекс Лавка).
+
+    ## Аутентификация
+    Административные эндпоинты (`/api/v1/admin/*`) требуют заголовок `X-Api-Key`.
+    При отсутствии или неверном ключе — **401 Unauthorized**.
+
+    ## Ingress
+    В продакшн-окружении запросы проходят через **nginx** (порт 80/443).
+    - `/metrics` доступен только с `127.0.0.1` (nginx restrict by IP).
+    - Остальные эндпоинты проксируются на `food_helper_api:8080`.
+  version: 1.2.0
+
+servers:
+  - url: /
+    description: Текущий сервер (через nginx или напрямую)
+
+tags:
+  - name: products
+    description: Поиск продуктов
+  - name: delivery-services
+    description: Службы доставки (публичные)
+  - name: admin-import
+    description: Импорт продуктов от парсера (требует X-Api-Key)
+  - name: admin-delivery-services
+    description: Управление службами доставки (требует X-Api-Key)
+  - name: admin-products
+    description: Управление продуктами (требует X-Api-Key)
+  - name: system
+    description: Системные эндпоинты — health, readiness, metrics, swagger
+
+security: []
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+      description: >
+        API-ключ для доступа к /api/v1/admin/* эндпоинтам.
+        Передаётся в заголовке X-Api-Key.
+        Устанавливается через переменную окружения ADMIN_API_KEY.
+        При отсутствии или неверном ключе возвращается 401 Unauthorized.
+
+  schemas:
+    CreateDeliveryServiceRequest:
+      type: object
+      required:
+        - code
+        - name
+      properties:
+        code:
+          type: string
+          maxLength: 64
+          description: Уникальный код службы (до 64 символов). Например — VKUSVILL.
+        name:
+          type: string
+          description: Отображаемое название службы
+        siteUrl:
+          type: string
+          nullable: true
+          description: URL сайта доставки
+        logoUrl:
+          type: string
+          nullable: true
+          description: URL логотипа
+        active:
+          type: boolean
+          default: true
+          description: Активна ли служба (влияет на выдачу в /api/v1/delivery-services?active=true)
+
+    UpdateDeliveryServiceRequest:
+      type: object
+      description: Все поля необязательные. Отсутствующее поле — не менять; явный null — обнулить.
+      properties:
+        name:
+          type: string
+        siteUrl:
+          type: string
+          nullable: true
+        logoUrl:
+          type: string
+          nullable: true
+        active:
+          type: boolean
+
+    UpdateProductRequest:
+      type: object
+      description: Частичное обновление продукта и его первого варианта. Отсутствующие поля не меняются.
+      properties:
+        name:
+          type: string
+          maxLength: 512
+          nullable: true
+        price:
+          type: integer
+          minimum: 0
+          nullable: true
+        currency:
+          type: string
+          nullable: true
+        manufacturer:
+          type: string
+          maxLength: 255
+          nullable: true
+          description: Производитель (первый вариант)
+        composition:
+          type: string
+          nullable: true
+          description: Состав (первый вариант)
+        weight:
+          type: integer
+          minimum: 1
+          nullable: true
+          description: Вес в граммах (первый вариант)
+        calories:
+          type: integer
+          minimum: 0
+          nullable: true
+        protein:
+          type: number
+          format: double
+          minimum: 0
+          nullable: true
+        fat:
+          type: number
+          format: double
+          minimum: 0
+          nullable: true
+        carbs:
+          type: number
+          format: double
+          minimum: 0
+          nullable: true
+
+    ParserImportRequest:
+      type: object
+      required:
+        - deliveryServiceCode
+        - items
+      properties:
+        deliveryServiceCode:
+          type: string
+          description: Код службы доставки (должен существовать в БД). Например — VKUSVILL.
+        items:
+          type: array
+          maxItems: 500
+          items:
+            $ref: '#/components/schemas/ParserImportItem'
+      description: |
+        Тело запроса от парсера. Обрабатывается не более 500 элементов.
+
+        **Duplicate URL in batch**: если в батче несколько элементов с одинаковым URL,
+        побеждает последний (last wins). Предыдущие игнорируются, счётчик `duplicatesResolved`
+        отражает количество отброшенных дублей.
+
+    ParserImportItem:
+      type: object
+      required:
+        - name
+        - url
+        - price
+        - variants
+      properties:
+        name:
+          type: string
+          maxLength: 512
+          description: Название продукта. Не может быть пустым.
+        url:
+          type: string
+          maxLength: 1024
+          description: Абсолютный http/https URL продукта. Уникален в рамках delivery service.
+        price:
+          type: integer
+          minimum: 0
+          description: Цена в рублях (целое). Должна быть >= 0.
+        currency:
+          type: string
+          default: RUB
+          description: Код валюты. Не может быть пустым.
+        variants:
+          type: array
+          minItems: 1
+          description: |
+            Список вариантов продукта (КБЖУ, вес, состав). **Не может быть пустым** —
+            пустой список variants вызывает item-level ошибку `empty_variants`.
+          items:
+            $ref: '#/components/schemas/ParserImportVariant'
+
+    ParserImportVariant:
+      type: object
+      properties:
+        manufacturer:
+          type: string
+          maxLength: 255
+          nullable: true
+          description: Производитель
+        composition:
+          type: string
+          nullable: true
+          description: Состав продукта (используется в поиске)
+        weight:
+          type: integer
+          nullable: true
+          minimum: 1
+          description: Вес в граммах. Если указан, должен быть > 0.
+        nutrients:
+          $ref: '#/components/schemas/Nutrients'
+
+    ImportResult:
+      type: object
+      description: |
+        Результат импорта батча. Возвращается **HTTP 200 даже при частичных ошибках**.
+
+        | Поле | Описание |
+        |------|---------|
+        | `totalReceived` | Количество items в запросе до дедупликации |
+        | `duplicatesResolved` | Items отброшены как дубли URL внутри батча (last wins) |
+        | `created` | Новых продуктов добавлено в БД |
+        | `updated` | Существующих продуктов обновлено |
+        | `failed` | Items не импортированы (ошибки валидации или БД) |
+        | `durationMs` | Время обработки батча в мс |
+        | `errors` | Список ошибок с machine-readable кодом |
+      required:
+        - totalReceived
+        - duplicatesResolved
+        - created
+        - updated
+        - failed
+        - durationMs
+        - errors
+      properties:
+        totalReceived:
+          type: integer
+          description: Количество items в запросе (до дедупликации)
+        duplicatesResolved:
+          type: integer
+          description: Количество дублей по URL внутри батча (отброшены, последний побеждает)
+        created:
+          type: integer
+          description: Новые продукты, добавленные в БД
+        updated:
+          type: integer
+          description: Существующие продукты, обновлённые в БД
+        failed:
+          type: integer
+          description: Количество items с ошибкой
+        durationMs:
+          type: integer
+          format: int64
+          description: Время обработки батча в миллисекундах
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImportErrorItem'
+
+    ImportErrorItem:
+      type: object
+      required:
+        - itemIndex
+        - errorCode
+        - message
+      properties:
+        itemIndex:
+          type: integer
+          description: Индекс элемента в items (0-based); -1 означает request-level ошибку
+        url:
+          type: string
+          nullable: true
+        name:
+          type: string
+          nullable: true
+        errorCode:
+          type: string
+          description: |
+            Machine-readable код ошибки. Стабилен между версиями.
+
+            | Код | Условие |
+            |-----|---------|
+            | `blank_name` | name пустой |
+            | `blank_url` | url пустой |
+            | `invalid_url` | url не является абсолютным http/https URL |
+            | `url_too_long` | url > 1024 символов |
+            | `name_too_long` | name > 512 символов |
+            | `negative_price` | price < 0 |
+            | `blank_currency` | currency пустой |
+            | `empty_variants` | variants пустой |
+            | `invalid_weight` | weight <= 0 |
+            | `negative_nutrients` | нутриент < 0 |
+            | `unknown_delivery_service` | deliveryServiceCode не найден в БД |
+            | `internal_error` | непредвиденная ошибка при записи (retry-able) |
+          enum:
+            - blank_name
+            - blank_url
+            - invalid_url
+            - url_too_long
+            - name_too_long
+            - negative_price
+            - blank_currency
+            - empty_variants
+            - invalid_weight
+            - negative_nutrients
+            - unknown_delivery_service
+            - internal_error
+        message:
+          type: string
+          description: Человекочитаемое описание ошибки
+
+    DeliveryService:
+      type: object
+      required:
+        - id
+        - code
+        - name
+        - active
+      properties:
+        id:
+          type: integer
+          format: int64
+        code:
+          type: string
+          description: Уникальный код (VKUSVILL, YANDEX_LAVKA, …)
+        name:
+          type: string
+        siteUrl:
+          type: string
+          nullable: true
+        logoUrl:
+          type: string
+          nullable: true
+        active:
+          type: boolean
+          default: true
+
+    Product:
+      type: object
+      required:
+        - id
+        - name
+        - url
+        - price
+        - currency
+        - deliveryService
+        - variants
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        url:
+          type: string
+          description: Прямая ссылка на продукт в сервисе доставки
+        price:
+          type: integer
+          description: Цена в рублях
+        currency:
+          type: string
+          default: RUB
+        deliveryService:
+          $ref: '#/components/schemas/DeliveryService'
+        variants:
+          type: array
+          description: |
+            Варианты продукта, соответствующие заданным КБЖУ-фильтрам.
+            Если фильтры не заданы — все варианты.
+          items:
+            $ref: '#/components/schemas/ProductVariant'
+
+    ProductVariant:
+      type: object
+      required:
+        - id
+        - nutrients
+      properties:
+        id:
+          type: integer
+          format: int64
+        manufacturer:
+          type: string
+          nullable: true
+        composition:
+          type: string
+          nullable: true
+          description: Состав продукта (используется при поиске по `q`)
+        weight:
+          type: integer
+          nullable: true
+          description: Вес в граммах
+        nutrients:
+          $ref: '#/components/schemas/Nutrients'
+
+    Nutrients:
+      type: object
+      description: Нутриенты (КБЖУ) на 100 г продукта
+      properties:
+        calories:
+          type: integer
+          nullable: true
+          description: Калорийность, ккал
+        protein:
+          type: number
+          format: double
+          nullable: true
+          description: Белки, г
+        fat:
+          type: number
+          format: double
+          nullable: true
+          description: Жиры, г
+        carbs:
+          type: number
+          format: double
+          nullable: true
+          description: Углеводы, г
+
+    ProductPage:
+      type: object
+      required:
+        - items
+        - page
+        - size
+        - totalElements
+        - totalPages
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Product'
+        page:
+          type: integer
+          description: Текущая страница (0-based)
+        size:
+          type: integer
+          description: Размер страницы
+        totalElements:
+          type: integer
+          format: int64
+          description: Общее количество совпадений
+        totalPages:
+          type: integer
+          description: Общее количество страниц
+
+    HealthResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [ok]
+          example: ok
+
+    ReadinessResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+          description: "`ok` — БД доступна; `degraded` — БД недоступна (HTTP 503)"
+
+    ErrorResponse:
+      type: object
+      required:
+        - requestId
+        - code
+        - message
+        - status
+        - path
+        - timestamp
+      properties:
+        requestId:
+          type: string
+          format: uuid
+          description: Идентификатор запроса (корреляция в логах). Берётся из X-Request-Id или генерируется.
+        code:
+          type: string
+          enum:
+            - VALIDATION_ERROR
+            - BUSINESS_VALIDATION_ERROR
+            - NOT_FOUND
+            - UNAUTHORIZED
+            - DB_ERROR
+            - INTERNAL_ERROR
+        message:
+          type: string
+          description: Человекочитаемое описание ошибки
+        status:
+          type: integer
+          description: HTTP-статус (400, 401, 404, 422, 500)
+        path:
+          type: string
+          description: Путь запроса
+        timestamp:
+          type: string
+          format: date-time
+        details:
+          type: array
+          items:
+            type: string
+          description: Дополнительные сообщения
+          nullable: true
+        fieldErrors:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldError'
+          nullable: true
+
+    FieldError:
+      type: object
+      required:
+        - field
+        - message
+      properties:
+        field:
+          type: string
+        message:
+          type: string
+
+paths:
+
+  # ── SYSTEM ──────────────────────────────────────────────────────────────────
+
+  /health:
+    get:
+      tags: [system]
+      summary: Liveness probe
+      operationId: healthCheck
+      description: |
+        Возвращает `{"status":"ok"}` если приложение запущено. Используется Docker/оркестратором
+        для liveness check. Не проверяет доступность БД — для этого используй `/ready`.
+      responses:
+        '200':
+          description: Приложение запущено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: ok
+
+  /ready:
+    get:
+      tags: [system]
+      summary: Readiness probe
+      operationId: readinessCheck
+      description: |
+        Проверяет доступность PostgreSQL (простой SELECT 1 через HikariCP).
+        Используется оркестратором для readiness check — трафик направляется только
+        если возвращается `200 ok`.
+      responses:
+        '200':
+          description: БД доступна
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessResponse'
+              example:
+                status: ok
+        '503':
+          description: БД недоступна
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessResponse'
+              example:
+                status: degraded
+
+  /metrics:
+    get:
+      tags: [system]
+      summary: Prometheus metrics
+      operationId: prometheusMetrics
+      description: |
+        Эндпоинт для скрейпинга Prometheus в формате text/plain (OpenMetrics).
+
+        > **Доступ ограничен nginx**: в продакшн-конфиге nginx разрешает `/metrics`
+        > только для `127.0.0.1`. Внешние запросы получают **403 Forbidden**.
+
+        **Метрики приложения:**
+        | Метрика | Тип | Описание |
+        |---------|-----|---------|
+        | `product_search_requests_total` | Counter | Всего поисковых запросов |
+        | `product_search_empty_results_total` | Counter | Запросов с пустой выдачей |
+        | `product_import_requests_total` | Counter | Всего запросов импорта |
+        | `product_import_items_total` | Counter | Всего items в импорте |
+        | `product_import_failed_items_total` | Counter | Провалившихся items |
+        | `product_import_duration` | Timer | Длительность импорта (p50/p95/p99) |
+
+        Ktor MicrometerMetrics автоматически добавляет HTTP-метрики (latency, status codes).
+      responses:
+        '200':
+          description: Метрики в формате Prometheus text/plain
+          content:
+            text/plain:
+              schema:
+                type: string
+        '403':
+          description: Доступ запрещён (nginx restrict — не с localhost)
+
+  /swagger:
+    get:
+      tags: [system]
+      summary: Swagger UI
+      operationId: swaggerUi
+      description: Интерактивная документация API на базе Swagger UI 5.x. Читает `/openapi.yaml`.
+      responses:
+        '200':
+          description: HTML страница Swagger UI
+          content:
+            text/html:
+              schema:
+                type: string
+
+  # ── PUBLIC API ───────────────────────────────────────────────────────────────
+
+  /api/v1/delivery-services:
+    get:
+      tags: [delivery-services]
+      summary: Список служб доставки
+      operationId: listDeliveryServices
+      description: |
+        Возвращает все службы доставки. По умолчанию — все (включая неактивные).
+        Параметр `active=true` ограничивает список только активными.
+
+        **Активные коды** на текущий момент: `VKUSVILL`, `YANDEX_LAVKA`.
+      parameters:
+        - name: active
+          in: query
+          required: false
+          description: Фильтр по активности. `true`/`1` — только активные.
+          schema:
+            type: string
+            enum: ["true", "false", "1", "0"]
+      responses:
+        '200':
+          description: Список служб доставки
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeliveryService'
+              example:
+                - id: 1
+                  code: VKUSVILL
+                  name: ВкусВилл
+                  siteUrl: https://vkusvill.ru
+                  logoUrl: null
+                  active: true
+                - id: 2
+                  code: YANDEX_LAVKA
+                  name: Яндекс Лавка
+                  siteUrl: https://lavka.yandex.ru
+                  logoUrl: null
+                  active: true
+        '500':
+          description: Внутренняя ошибка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/products:
+    get:
+      tags: [products]
+      summary: Поиск продуктов
+      operationId: searchProducts
+      description: |
+        Поиск продуктов с пагинацией и фильтрами по КБЖУ и службам доставки.
+        Все параметры необязательные — без параметров возвращает первую страницу всех продуктов.
+
+        ### Семантика параметра `q`
+
+        Параметр `q` разбивается по пробелам на токены (**AND-семантика**): каждый токен должен
+        присутствовать либо в названии продукта, либо в составе (`composition`) хотя бы одного варианта.
+
+        **Ранжирование результатов:**
+        | Балл | Условие |
+        |------|---------|
+        | 100 | Точная фраза найдена в названии |
+        | 80 | Все токены в названии (любой порядок) |
+        | 50 | Часть токенов в названии, остальные — в составе одного варианта |
+        | 30 | Все токены только в составе (название не совпало) |
+
+        Сортировка при равных баллах: `name ASC` (case-insensitive), `id ASC`.
+
+        ### КБЖУ-фильтры
+
+        Применяются **на уровне вариантов**: если у продукта несколько вариантов, в ответ попадают
+        только те, что удовлетворяют всем фильтрам. Продукт без подходящих вариантов исключается.
+
+        ### Пагинация
+
+        Пагинация выполняется *после* ранжирования (ранжирование до 2000 кандидатов in-memory).
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: Поисковый запрос. Разбивается по пробелам, AND-семантика.
+          schema:
+            type: string
+            example: молоко овсяное
+        - name: deliveryServiceIds
+          in: query
+          required: false
+          description: Фильтр по ID служб доставки. Несколько ID — через запятую.
+          schema:
+            type: string
+            example: "1,2"
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+          description: Номер страницы (0-based)
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+          description: Размер страницы (1–100)
+        - name: sort
+          in: query
+          required: false
+          description: Поле и направление сортировки. По умолчанию — по рангу (`rank,desc`).
+          schema:
+            type: string
+            example: "name,asc"
+        - name: minCalories
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+        - name: maxCalories
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+        - name: minProtein
+          in: query
+          required: false
+          schema:
+            type: number
+            format: double
+            minimum: 0
+        - name: maxProtein
+          in: query
+          required: false
+          schema:
+            type: number
+            format: double
+            minimum: 0
+        - name: minFat
+          in: query
+          required: false
+          schema:
+            type: number
+            format: double
+            minimum: 0
+        - name: maxFat
+          in: query
+          required: false
+          schema:
+            type: number
+            format: double
+            minimum: 0
+        - name: minCarbs
+          in: query
+          required: false
+          schema:
+            type: number
+            format: double
+            minimum: 0
+        - name: maxCarbs
+          in: query
+          required: false
+          schema:
+            type: number
+            format: double
+            minimum: 0
+      responses:
+        '200':
+          description: Страница результатов
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductPage'
+              example:
+                items:
+                  - id: 42
+                    name: Молоко 1л
+                    url: https://vkusvill.ru/goods/12345
+                    price: 150
+                    currency: RUB
+                    deliveryService:
+                      id: 1
+                      code: VKUSVILL
+                      name: ВкусВилл
+                      active: true
+                    variants:
+                      - id: 101
+                        manufacturer: Правильное молоко
+                        composition: Молоко нормализованное пастеризованное
+                        weight: 1000
+                        nutrients:
+                          calories: 60
+                          protein: 3.0
+                          fat: 2.5
+                          carbs: 4.7
+                page: 0
+                size: 20
+                totalElements: 1
+                totalPages: 1
+        '400':
+          description: Неверные параметры запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ── ADMIN — IMPORT ───────────────────────────────────────────────────────────
+
+  /api/v1/admin/import:
+    post:
+      tags: [admin-import]
+      summary: Импорт продуктов от парсера
+      operationId: importProducts
+      security:
+        - ApiKeyAuth: []
+      description: |
+        Принимает батч продуктов в формате парсера. Обрабатывает до 500 items за раз.
+        Внутри чанкируется по 100 items.
+
+        **Идемпотентность**: повторная отправка тех же данных не создаёт дубликатов.
+        Уникальный ключ — `(deliveryServiceCode, url)`. Существующие продукты обновляются.
+
+        **Request-level ошибки** → весь запрос отклоняется (`400`):
+        - `items` пустой
+        - `items.size > 500`
+        - `deliveryServiceCode` пустой
+
+        **Item-level ошибки** → item попадает в `errors[]`, остальные продолжают обрабатываться:
+        - name пустой или > 512 символов
+        - url пустой, не абсолютный http/https, или > 1024 символов
+        - price < 0; currency пустой
+        - variants пустой
+        - weight <= 0 (если указан); нутриент < 0
+
+        **Ответ всегда HTTP 200**, даже при частичных ошибках.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ParserImportRequest'
+            example:
+              deliveryServiceCode: VKUSVILL
+              items:
+                - name: Молоко 1л
+                  url: https://vkusvill.ru/goods/12345
+                  price: 150
+                  currency: RUB
+                  variants:
+                    - manufacturer: Правильное молоко
+                      composition: Молоко нормализованное пастеризованное
+                      weight: 1000
+                      nutrients:
+                        calories: 60
+                        protein: 3.0
+                        fat: 2.5
+                        carbs: 4.7
+      responses:
+        '200':
+          description: Результат импорта (возвращается даже при частичных ошибках)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportResult'
+              example:
+                totalReceived: 3
+                duplicatesResolved: 1
+                created: 1
+                updated: 1
+                failed: 0
+                durationMs: 42
+                errors: []
+        '400':
+          description: Request-level ошибка (весь запрос отклонён)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                requestId: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+                code: VALIDATION_ERROR
+                message: "items must not be empty"
+                status: 400
+                path: /api/v1/admin/import
+                timestamp: "2026-03-29T10:00:00Z"
+        '401':
+          description: Отсутствует или неверный X-Api-Key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ── ADMIN — DELIVERY SERVICES ────────────────────────────────────────────────
+
+  /api/v1/admin/delivery-services:
+    post:
+      tags: [admin-delivery-services]
+      summary: Создать службу доставки
+      operationId: createDeliveryService
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDeliveryServiceRequest'
+      responses:
+        '201':
+          description: Создано
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryService'
+        '400':
+          description: Неверные параметры
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Отсутствует или неверный X-Api-Key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Бизнес-ошибка (например, code уже существует)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/admin/delivery-services/{id}:
+    put:
+      tags: [admin-delivery-services]
+      summary: Обновить службу доставки
+      operationId: updateDeliveryService
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDeliveryServiceRequest'
+      responses:
+        '200':
+          description: Обновлено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryService'
+        '400':
+          description: Неверные параметры
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Отсутствует или неверный X-Api-Key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Не найдено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags: [admin-delivery-services]
+      summary: Удалить службу доставки
+      operationId: deleteDeliveryService
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Удалено
+        '401':
+          description: Отсутствует или неверный X-Api-Key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Не найдено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Невозможно удалить (есть связанные продукты)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ── ADMIN — PRODUCTS ─────────────────────────────────────────────────────────
+
+  /api/v1/admin/ping:
+    get:
+      tags: [admin-products]
+      summary: Проверка API-ключа
+      operationId: adminPing
+      security:
+        - ApiKeyAuth: []
+      description: |
+        Возвращает `{"ok":true}` если ключ корректен. Удобно для проверки аутентификации
+        без побочных эффектов.
+      responses:
+        '200':
+          description: Ключ корректен
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+              example:
+                ok: true
+        '401':
+          description: Отсутствует или неверный X-Api-Key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/admin/products/{id}:
+    patch:
+      tags: [admin-products]
+      summary: Частичное обновление продукта
+      operationId: patchProduct
+      security:
+        - ApiKeyAuth: []
+      description: |
+        Обновляет поля продукта и/или его первого варианта.
+        Поля, отсутствующие в теле запроса, не меняются.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProductRequest'
+      responses:
+        '200':
+          description: Обновлено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '400':
+          description: Неверные параметры
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Отсутствует или неверный X-Api-Key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Продукт не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags: [admin-products]
+      summary: Удалить продукт
+      operationId: deleteProduct
+      security:
+        - ApiKeyAuth: []
+      description: |
+        Удаляет продукт и все его варианты (CASCADE).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Удалено
+        '401':
+          description: Отсутствует или неверный X-Api-Key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Продукт не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'

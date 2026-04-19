@@ -1,0 +1,122 @@
+# Запуск:
+#   local: docker compose --env-file .env.local up -d
+#   prod:  docker compose --env-file .env.prod  up -d
+#
+# Порты управляются через env-файл:
+#   Nginx    → ${NGINX_BIND_HOST:-0.0.0.0}:${NGINX_PORT:-80}:80
+#   Postgres → ${POSTGRES_BIND_HOST:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432
+#   API      — порт наружу НЕ пробрасывается, nginx проксирует внутри сети
+#              Swagger доступен через nginx: http://host:PORT/swagger
+#
+# Monitoring запускается отдельно:
+#   docker compose -f monitoring/docker-compose.yml --env-file .env.local up -d
+#
+# Парсер (parser-scheduler):
+#   Запускается вместе со стеком, работает как демон.
+#   Cron-джоба стартует каждую ночь в 00:00 UTC.
+#   Ручной запуск:
+#     docker compose --env-file .env.prod exec parser-scheduler /app/run_pipeline.sh
+#   Переменные: FOOD_HELPER_API_URL, FOOD_HELPER_API_KEY (см. .env.example),
+#     PARSER_PRODUCT_COUNT, PARSER_SITES, PARSER_LINK_PAGES, PARSER_BATCH_SIZE
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: food_helper_postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "${POSTGRES_BIND_HOST:-0.0.0.0}:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - app_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: food_helper_api
+    environment:
+      JDBC_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      ADMIN_API_KEY: ${ADMIN_API_KEY}
+    networks:
+      - app_net
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/health 2>/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: food_helper_nginx
+    ports:
+      - "${NGINX_BIND_HOST:-0.0.0.0}:${NGINX_PORT:-80}:80"
+    volumes:
+      - ./docs/nginx.docker.conf:/etc/nginx/conf.d/food-helper.conf:ro
+      - /dev/null:/etc/nginx/conf.d/default.conf:ro
+      - ./frontend-dist:/usr/share/nginx/html:ro
+      - nginx_logs:/var/log/nginx
+    networks:
+      - app_net
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  parser-scheduler:
+    build:
+      context: ../parser_v3
+      dockerfile: Dockerfile
+    container_name: food_helper_parser_scheduler
+    entrypoint: ["/scheduler_entrypoint.sh"]
+    environment:
+      # URL эндпоинта импорта — изнутри docker-сети обращаемся напрямую к api
+      FOOD_HELPER_API_URL: ${FOOD_HELPER_API_URL:-http://api:8080/api/v1/admin/import}
+      # Ключ должен совпадать с ADMIN_API_KEY сервиса
+      FOOD_HELPER_API_KEY: ${FOOD_HELPER_API_KEY}
+      # Сайты для парсинга (через пробел)
+      PARSER_SITES: ${PARSER_SITES:-vkusvill lavka}
+      # Кол-во продуктов на сайт за один прогон
+      PARSER_PRODUCT_COUNT: ${PARSER_PRODUCT_COUNT:-1000}
+      # Кол-во страниц при сборе ссылок
+      PARSER_LINK_PAGES: ${PARSER_LINK_PAGES:-55}
+      # Размер батча при выгрузке в API
+      PARSER_BATCH_SIZE: ${PARSER_BATCH_SIZE:-200}
+    volumes:
+      - parser_data:/app/data
+    networks:
+      - app_net
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+networks:
+  app_net:
+    name: food_helper_net
+
+volumes:
+  pgdata:
+    name: food_helper_pgdata
+  nginx_logs:
+    name: food_helper_nginx_logs
+  parser_data:
+    name: food_helper_parser_data

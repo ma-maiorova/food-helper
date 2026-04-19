@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- background: dark green rounded square -->
+  <rect width="64" height="64" rx="12" ry="12" fill="#24553B"/>
+
+  <!-- bowl body (white half-ellipse) -->
+  <ellipse cx="32" cy="40" rx="23" ry="20" fill="white"/>
+  <!-- cover top half of bowl body -->
+  <rect x="9" y="21" width="46" height="19" fill="#24553B"/>
+  <!-- bowl rim -->
+  <ellipse cx="32" cy="35" rx="23" ry="5" fill="white"/>
+
+  <!-- lettuce dark (left) -->
+  <ellipse cx="24" cy="28" rx="9" ry="6"
+           fill="#52B788" transform="rotate(-15 24 28)"/>
+
+  <!-- lettuce light (right) -->
+  <ellipse cx="38" cy="27" rx="8" ry="5"
+           fill="#74C69D" transform="rotate(10 38 27)"/>
+
+  <!-- carrot (orange, left-top) -->
+  <ellipse cx="20" cy="23" rx="4" ry="6"
+           fill="#F97316" transform="rotate(-20 20 23)"/>
+
+  <!-- tomato (red circle, center-top) -->
+  <circle cx="33" cy="21" r="7" fill="#EF4444"/>
+  <!-- tomato highlight -->
+  <circle cx="30" cy="18.5" r="1.8" fill="#FCA5A5" opacity="0.8"/>
+</svg>

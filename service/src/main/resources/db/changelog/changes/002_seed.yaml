@@ -1,0 +1,112 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-test-data
+      author: ma-maiorova
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: 0
+            sql: "SELECT COUNT(*) FROM delivery_service WHERE code='YANDEX_EATS'"
+      changes:
+        - insert:
+            tableName: delivery_service
+            columns:
+              - column: { name: code, value: "YANDEX_EATS" }
+              - column: { name: name, value: "Яндекс Еда" }
+              - column: { name: site_url, value: "https://eda.yandex.ru" }
+
+        - insert:
+            tableName: delivery_service
+            columns:
+              - column: { name: code, value: "DELIVERY_CLUB" }
+              - column: { name: name, value: "Delivery Club" }
+              - column: { name: site_url, value: "https://www.delivery-club.ru" }
+
+        - insert:
+            tableName: product
+            columns:
+              - column: { name: name, value: "Куриное филе на гриле" }
+              - column: { name: url, value: "https://example.com/product/1" }
+              - column: { name: price, valueNumeric: 350 }
+              - column: { name: currency, value: "RUB" }
+              - column:
+                  name: delivery_service_id
+                  valueComputed: "(select id from delivery_service where code='YANDEX_EATS')"
+
+        - insert:
+            tableName: product
+            columns:
+              - column: { name: name, value: "Гречка отварная" }
+              - column: { name: url, value: "https://example.com/product/2" }
+              - column: { name: price, valueNumeric: 150 }
+              - column: { name: currency, value: "RUB" }
+              - column:
+                  name: delivery_service_id
+                  valueComputed: "(select id from delivery_service where code='YANDEX_EATS')"
+
+        - insert:
+            tableName: product
+            columns:
+              - column: { name: name, value: "Салат Цезарь" }
+              - column: { name: url, value: "https://example.com/product/3" }
+              - column: { name: price, valueNumeric: 420 }
+              - column: { name: currency, value: "RUB" }
+              - column:
+                  name: delivery_service_id
+                  valueComputed: "(select id from delivery_service where code='DELIVERY_CLUB')"
+
+        - insert:
+            tableName: product_variant
+            columns:
+              - column:
+                  name: product_id
+                  valueComputed: "(select id from product where url='https://example.com/product/1')"
+              - column: { name: manufacturer, value: "Производитель А" }
+              - column: { name: composition, value: "Куриное филе, специи" }
+              - column: { name: weight, valueNumeric: 200 }
+              - column: { name: calories, valueNumeric: 150 }
+              - column: { name: protein, valueNumeric: 25.0 }
+              - column: { name: fat, valueNumeric: 4.0 }
+              - column: { name: carbs, valueNumeric: 0.0 }
+
+        - insert:
+            tableName: product_variant
+            columns:
+              - column:
+                  name: product_id
+                  valueComputed: "(select id from product where url='https://example.com/product/1')"
+              - column: { name: manufacturer, value: "Производитель Б" }
+              - column: { name: composition, value: "Куриное филе, специи, масло" }
+              - column: { name: weight, valueNumeric: 180 }
+              - column: { name: calories, valueNumeric: 180 }
+              - column: { name: protein, valueNumeric: 27.0 }
+              - column: { name: fat, valueNumeric: 7.0 }
+              - column: { name: carbs, valueNumeric: 1.0 }
+
+        - insert:
+            tableName: product_variant
+            columns:
+              - column:
+                  name: product_id
+                  valueComputed: "(select id from product where url='https://example.com/product/2')"
+              - column: { name: manufacturer, value: "Производитель В" }
+              - column: { name: composition, value: "Крупа гречневая" }
+              - column: { name: weight, valueNumeric: 150 }
+              - column: { name: calories, valueNumeric: 110 }
+              - column: { name: protein, valueNumeric: 4.0 }
+              - column: { name: fat, valueNumeric: 1.0 }
+              - column: { name: carbs, valueNumeric: 22.0 }
+
+        - insert:
+            tableName: product_variant
+            columns:
+              - column:
+                  name: product_id
+                  valueComputed: "(select id from product where url='https://example.com/product/3')"
+              - column: { name: manufacturer, value: "Производитель Г" }
+              - column: { name: composition, value: "Курица, салат, сухарики, соус" }
+              - column: { name: weight, valueNumeric: 250 }
+              - column: { name: calories, valueNumeric: 210 }
+              - column: { name: protein, valueNumeric: 12.0 }
+              - column: { name: fat, valueNumeric: 14.0 }
+              - column: { name: carbs, valueNumeric: 10.0 }

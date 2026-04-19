@@ -1,12 +1,13 @@
 FROM python:3.12-slim
 
-# --- системные зависимости для Chrome + Xvfb ---
+# --- системные зависимости для Chrome + Xvfb + cron ---
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     unzip \
     ca-certificates \
     fonts-liberation \
     xvfb \
+    cron \
     libx11-6 \
     libx11-xcb1 \
     libxcb1 \
@@ -67,6 +68,8 @@ COPY . .
 RUN mkdir -p /app/data
 
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+COPY scheduler_entrypoint.sh /scheduler_entrypoint.sh
+COPY run_pipeline.sh /app/run_pipeline.sh
+RUN chmod +x /entrypoint.sh /scheduler_entrypoint.sh /app/run_pipeline.sh
 
 ENTRYPOINT ["/entrypoint.sh"]

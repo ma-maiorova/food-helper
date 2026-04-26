@@ -320,18 +320,19 @@
       "datasource": { "type": "prometheus", "uid": "prometheus-food-helper" },
       "gridPos": { "h": 4, "w": 6, "x": 0, "y": 69 },
       "id": 41,
-      "title": "Поисков всего (за всё время)",
+      "title": "Поисков всего (за период)",
       "type": "stat",
-      "options": { "colorMode": "value", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "options": { "colorMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "decimals": 0,
-          "noValue": "0"
+          "noValue": "0",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "text", "value": null }] }
         }
       },
       "targets": [
-        { "expr": "sum(product_search_requests_total)", "legendFormat": "total" }
+        { "expr": "sum(increase(product_search_requests_total[$__range]))", "legendFormat": "total" }
       ]
     },
 
@@ -339,18 +340,19 @@
       "datasource": { "type": "prometheus", "uid": "prometheus-food-helper" },
       "gridPos": { "h": 4, "w": 6, "x": 6, "y": 69 },
       "id": 42,
-      "title": "Импортировано товаров (за всё время)",
+      "title": "Импортировано товаров (за период)",
       "type": "stat",
-      "options": { "colorMode": "value", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "options": { "colorMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "decimals": 0,
-          "noValue": "0"
+          "noValue": "0",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "text", "value": null }] }
         }
       },
       "targets": [
-        { "expr": "sum(product_import_created_items_total) + sum(product_import_updated_items_total)", "legendFormat": "imported" }
+        { "expr": "sum(increase(product_import_created_items_total[$__range])) + sum(increase(product_import_updated_items_total[$__range]))", "legendFormat": "imported" }
       ]
     },
 
@@ -358,18 +360,19 @@
       "datasource": { "type": "prometheus", "uid": "prometheus-food-helper" },
       "gridPos": { "h": 4, "w": 6, "x": 12, "y": 69 },
       "id": 44,
-      "title": "Поисков с бота (total)",
+      "title": "Поисков с бота (за период)",
       "type": "stat",
-      "options": { "colorMode": "value", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "options": { "colorMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "decimals": 0,
-          "noValue": "0"
+          "noValue": "0",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "text", "value": null }] }
         }
       },
       "targets": [
-        { "expr": "sum(product_search_requests_total{source=\"bot\"})", "legendFormat": "bot" }
+        { "expr": "sum(increase(product_search_requests_total{source=\"bot\"}[$__range]))", "legendFormat": "bot" }
       ]
     },
 
@@ -377,18 +380,19 @@
       "datasource": { "type": "prometheus", "uid": "prometheus-food-helper" },
       "gridPos": { "h": 4, "w": 6, "x": 18, "y": 69 },
       "id": 45,
-      "title": "Поисков с web (total)",
+      "title": "Поисков с web (за период)",
       "type": "stat",
-      "options": { "colorMode": "value", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "options": { "colorMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "decimals": 0,
-          "noValue": "0"
+          "noValue": "0",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "text", "value": null }] }
         }
       },
       "targets": [
-        { "expr": "sum(product_search_requests_total{source=\"web\"})", "legendFormat": "web" }
+        { "expr": "sum(increase(product_search_requests_total{source=\"web\"}[$__range]))", "legendFormat": "web" }
       ]
     },
 

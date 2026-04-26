@@ -1,5 +1,6 @@
 import argparse
 import os
+import time
 from utils.browser import get_driver
 from sites import SITES
 from utils.file_handler import save_data, load_data, save_products, load_products
@@ -126,7 +127,27 @@ if __name__ == "__main__":
 
         elif args.task == "parse":
             links = load_data(args.input, format="csv")[:int(args.count)]
-            data = [parser.parse_product(url) for url in links]
+            total = len(links)
+            logger.info(f"Начинаю парсинг {total} карточек")
+            parse_start = time.monotonic()
+            data = []
+            for i, url in enumerate(links, 1):
+                card_start = time.monotonic()
+                result = parser.parse_product(url)
+                card_elapsed = time.monotonic() - card_start
+                if result:
+                    data.append(result)
+                elapsed = time.monotonic() - parse_start
+                avg = elapsed / i
+                eta = avg * (total - i)
+                logger.info(
+                    f"[{i}/{total}] {card_elapsed:.1f}с | прошло {elapsed:.0f}с | "
+                    f"осталось ~{eta:.0f}с | успешно: {len(data)}"
+                )
+            logger.info(
+                f"Парсинг завершён за {time.monotonic() - parse_start:.0f}с — "
+                f"товаров: {len(data)}/{total}"
+            )
             save_products([i for i in data if i],
                           filepath=args.output, file_format=args.fmt)
     finally:

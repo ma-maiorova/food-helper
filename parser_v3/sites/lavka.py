@@ -33,14 +33,22 @@ class LavkaParser(BaseParser):
 
     def get_product_links(self, max_pages=55) -> set:
         all_links = set()
+        section_links = list(config.get_section_links(config.data_lavka))
+        total_sections = len(section_links)
+        start = time.time()
 
-        for category_url in config.get_section_links(config.data_lavka):
-            logger.info(f"Обработка раздела: {category_url}")
+        for idx, category_url in enumerate(section_links, 1):
+            section_start = time.time()
+            logger.info(f"[{idx}/{total_sections}] Обработка раздела: {category_url}")
             links = self._parse_links(category_url)
-            logger.info(f"Ссылок найдено: {len(links)}")
+            section_elapsed = time.time() - section_start
+            logger.info(
+                f"[{idx}/{total_sections}] Раздел завершён за {section_elapsed:.0f}с "
+                f"— ссылок: {len(links)}, всего: {len(all_links) + len(links)}"
+            )
             all_links.update(links)
 
-        logger.info(f"Итого собрано ссылок: {len(all_links)}")
+        logger.info(f"Итого собрано ссылок: {len(all_links)} за {time.time() - start:.0f}с")
         return all_links
 
     def _parse_links(self, base_url):

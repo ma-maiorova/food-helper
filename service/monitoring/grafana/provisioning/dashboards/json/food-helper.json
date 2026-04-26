@@ -45,8 +45,8 @@
       "options": { "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] } },
       "fieldConfig": { "defaults": { "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 0.1 }, { "color": "red", "value": 1 }] } } },
       "targets": [
-        { "expr": "sum(rate(ktor_http_server_requests_seconds_count{status=~\"4..\"}[1m]))", "legendFormat": "4xx" },
-        { "expr": "sum(rate(ktor_http_server_requests_seconds_count{status=~\"5..\"}[1m]))", "legendFormat": "5xx" }
+        { "expr": "sum(rate(ktor_http_server_requests_seconds_count{status=~\"4..\",route=~\"/api/v1/.*|/health|/ready|/swagger.*|/openapi/.*|/metrics\"}[1m]))", "legendFormat": "4xx" },
+        { "expr": "sum(rate(ktor_http_server_requests_seconds_count{status=~\"5..\",route=~\"/api/v1/.*|/health|/ready|/swagger.*|/openapi/.*|/metrics\"}[1m]))", "legendFormat": "5xx" }
       ]
     },
 
@@ -103,7 +103,7 @@
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
       "fieldConfig": { "defaults": { "custom": { "lineWidth": 2, "drawStyle": "line" }, "unit": "reqps" } },
       "targets": [
-        { "expr": "sum by (route, status) (rate(ktor_http_server_requests_seconds_count{status=~\"[45]..\"}[5m]))", "legendFormat": "{{status}} {{route}}" }
+        { "expr": "sum by (route, status) (rate(ktor_http_server_requests_seconds_count{status=~\"[45]..\",route=~\"/api/v1/.*|/health|/ready|/swagger.*|/openapi/.*|/metrics\"}[5m]))", "legendFormat": "{{status}} {{route}}" }
       ]
     },
 
@@ -172,7 +172,7 @@
       "title": "Импорт: запросы по службе доставки (rate/s)",
       "type": "timeseries",
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
-      "fieldConfig": { "defaults": { "custom": { "lineWidth": 2, "fillOpacity": 10, "drawStyle": "line" }, "unit": "reqps" } },
+      "fieldConfig": { "defaults": { "custom": { "lineWidth": 2, "fillOpacity": 10, "drawStyle": "line" }, "unit": "reqps", "noValue": "0" } },
       "targets": [
         { "expr": "sum by (delivery_service) (rate(product_import_requests_total[5m]))", "legendFormat": "{{delivery_service}}" }
       ]
@@ -185,7 +185,7 @@
       "title": "Импорт: создано / обновлено / failed (rate/s)",
       "type": "timeseries",
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
-      "fieldConfig": { "defaults": { "custom": { "lineWidth": 2, "fillOpacity": 10, "drawStyle": "line" }, "unit": "itemps" } },
+      "fieldConfig": { "defaults": { "custom": { "lineWidth": 2, "fillOpacity": 10, "drawStyle": "line" }, "unit": "short", "noValue": "0" } },
       "targets": [
         { "expr": "sum(rate(product_import_created_items_total[5m]))", "legendFormat": "created" },
         { "expr": "sum(rate(product_import_updated_items_total[5m]))", "legendFormat": "updated" },
@@ -200,7 +200,7 @@
       "title": "Импорт: created / updated по службе доставки",
       "type": "timeseries",
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
-      "fieldConfig": { "defaults": { "custom": { "lineWidth": 2, "drawStyle": "bars", "fillOpacity": 80 }, "unit": "short" } },
+      "fieldConfig": { "defaults": { "custom": { "lineWidth": 2, "drawStyle": "bars", "fillOpacity": 80 }, "unit": "short", "noValue": "0" } },
       "targets": [
         { "expr": "sum by (delivery_service) (rate(product_import_created_items_total[5m]))", "legendFormat": "created {{delivery_service}}" },
         { "expr": "sum by (delivery_service) (rate(product_import_updated_items_total[5m]))", "legendFormat": "updated {{delivery_service}}" }
@@ -214,7 +214,7 @@
       "title": "Импорт: топ кодов ошибок",
       "type": "timeseries",
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
-      "fieldConfig": { "defaults": { "custom": { "lineWidth": 2, "drawStyle": "line" }, "unit": "short" } },
+      "fieldConfig": { "defaults": { "custom": { "lineWidth": 2, "drawStyle": "line" }, "unit": "short", "noValue": "0" } },
       "targets": [
         { "expr": "sum by (error_code) (rate(product_import_failed_items_total[5m]))", "legendFormat": "{{error_code}}" }
       ]
@@ -227,7 +227,7 @@
       "title": "Импорт: дубли URL в батче (дедупликация)",
       "type": "timeseries",
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
-      "fieldConfig": { "defaults": { "custom": { "lineWidth": 2, "drawStyle": "line" }, "unit": "short" } },
+      "fieldConfig": { "defaults": { "custom": { "lineWidth": 2, "drawStyle": "line" }, "unit": "short", "noValue": "0" } },
       "targets": [
         { "expr": "sum by (delivery_service) (rate(product_import_duplicate_overridden_total[5m]))", "legendFormat": "{{delivery_service}}" }
       ]

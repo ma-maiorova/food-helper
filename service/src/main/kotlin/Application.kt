@@ -74,6 +74,9 @@ fun Application.module() {
         registry = AppMetrics.registry
     }
 
+    // Pre-register import/search metrics so they appear in Prometheus before first request
+    AppMetrics.preRegisterImportMetrics()
+
     installApiStatusPages()
 
     val maxItemsPerRequest = environment.config.propertyOrNull("ktor.import.maxItemsPerRequest")?.getString()?.toIntOrNull() ?: 500

@@ -312,6 +312,103 @@
       "targets": [
         { "expr": "sum by (delivery_service, error_code) (increase(product_import_failed_items_total[$__range]))", "legendFormat": "{{delivery_service}} / {{error_code}}", "instant": true }
       ]
+    },
+
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 68 }, "id": 40, "title": "Использование", "type": "row" },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus-food-helper" },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 69 },
+      "id": 41,
+      "title": "Поисков всего (за всё время)",
+      "type": "stat",
+      "options": { "colorMode": "value", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "0"
+        }
+      },
+      "targets": [
+        { "expr": "sum(product_search_requests_total)", "legendFormat": "total" }
+      ]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus-food-helper" },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 69 },
+      "id": 42,
+      "title": "Импортировано товаров (за всё время)",
+      "type": "stat",
+      "options": { "colorMode": "value", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "0"
+        }
+      },
+      "targets": [
+        { "expr": "sum(product_import_created_items_total) + sum(product_import_updated_items_total)", "legendFormat": "imported" }
+      ]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus-food-helper" },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 69 },
+      "id": 44,
+      "title": "Поисков с бота (total)",
+      "type": "stat",
+      "options": { "colorMode": "value", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "0"
+        }
+      },
+      "targets": [
+        { "expr": "sum(product_search_requests_total{source=\"bot\"})", "legendFormat": "bot" }
+      ]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus-food-helper" },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 69 },
+      "id": 45,
+      "title": "Поисков с web (total)",
+      "type": "stat",
+      "options": { "colorMode": "value", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "0"
+        }
+      },
+      "targets": [
+        { "expr": "sum(product_search_requests_total{source=\"web\"})", "legendFormat": "web" }
+      ]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus-food-helper" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 73 },
+      "id": 43,
+      "title": "Поиски: bot vs web (rate/min)",
+      "type": "timeseries",
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "fieldConfig": {
+        "defaults": { "custom": { "lineWidth": 2, "fillOpacity": 15, "drawStyle": "line" }, "unit": "reqps" },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "bot" }, "properties": [{ "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "web" }, "properties": [{ "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }
+        ]
+      },
+      "targets": [
+        { "expr": "sum by (source) (rate(product_search_requests_total[1m]))", "legendFormat": "{{source}}" }
+      ]
     }
 
   ],

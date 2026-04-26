@@ -48,6 +48,10 @@ def _parse_product(data: dict) -> ProductItem:
     )
 
 
+BOT_USER_AGENT = "food-helper-bot/1.0"
+BOT_HEADERS = {"User-Agent": BOT_USER_AGENT}
+
+
 class ProductService:
     """Работа с данными через REST API."""
 
@@ -56,7 +60,7 @@ class ProductService:
     async def get_delivery_services(self) -> list[DeliveryService]:
         """Возвращает список всех активных служб доставки."""
         url = f"{self.BASE_URL}/api/v1/delivery-services"
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(headers=BOT_HEADERS) as session:
             async with session.get(url, params={"active": "true"}) as response:
                 response.raise_for_status()
                 data = await response.json()
@@ -95,7 +99,7 @@ class ProductService:
             if val is not None:
                 params[name] = val
 
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(headers=BOT_HEADERS) as session:
             async with session.get(url, params=params) as response:
                 response.raise_for_status()
                 data = await response.json()

@@ -19,7 +19,7 @@ class ProductService(
             criteria.query, criteria.deliveryServiceIds, criteria.page, criteria.size, criteria.sort
         )
 
-        AppMetrics.searchRequestsTotal(hasQuery = criteria.query != null).increment()
+        AppMetrics.searchRequestsTotal(hasQuery = criteria.query != null, source = criteria.source).increment()
 
         val result = repo.search(criteria)
 

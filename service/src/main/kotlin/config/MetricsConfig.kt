@@ -32,9 +32,13 @@ object AppMetrics {
         .description("Search requests that returned zero results")
         .register(registry)
 
-    /** Labeled search counter. [hasQuery] = "true" if q param was provided. */
-    fun searchRequestsTotal(hasQuery: Boolean): Counter =
-        registry.counter("product_search_requests_total", "has_query", hasQuery.toString())
+    /** Labeled search counter. [hasQuery] = "true" if q param was provided. [source] = "bot" or "web". */
+    fun searchRequestsTotal(hasQuery: Boolean, source: String = "web"): Counter =
+        registry.counter(
+            "product_search_requests_total",
+            "has_query", hasQuery.toString(),
+            "source", source
+        )
 
     // ── Import metrics — labeled by delivery_service ──────────────────────────
 

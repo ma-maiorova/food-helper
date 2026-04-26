@@ -1,12 +1,18 @@
 # Запуск:
-#   local: docker compose --env-file .env.local up -d
-#   prod:  docker compose --env-file .env.prod  up -d
+#   local: docker compose --env-file .env.local up -d --build
+#   prod:  docker compose --env-file .env.prod  up -d --build
+#
+# Обязательные переменные (задай в .env.local / .env.prod):
+#   POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD
+#   ADMIN_API_KEY
+#   FOOD_HELPER_API_KEY  (должен совпадать с ADMIN_API_KEY)
+#   BOT_TOKEN            (Telegram Bot Token)
 #
 # Порты управляются через env-файл:
 #   Nginx    → ${NGINX_BIND_HOST:-0.0.0.0}:${NGINX_PORT:-80}:80
 #   Postgres → ${POSTGRES_BIND_HOST:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432
 #   API      — порт наружу НЕ пробрасывается, nginx проксирует внутри сети
-#              Swagger доступен через nginx: http://host:PORT/swagger
+#              Swagger доступен через nginx: http://host:PORT/swagger-ui/
 #
 # Monitoring запускается отдельно:
 #   docker compose -f monitoring/docker-compose.yml --env-file .env.local up -d
@@ -18,6 +24,10 @@
 #     docker compose --env-file .env.prod exec parser-scheduler /app/run_pipeline.sh
 #   Переменные: FOOD_HELPER_API_URL, FOOD_HELPER_API_KEY (см. .env.example),
 #     PARSER_PRODUCT_COUNT, PARSER_SITES, PARSER_LINK_PAGES, PARSER_BATCH_SIZE
+#
+# Бот (bot):
+#   Telegram-бот на polling, зависит от api (через nginx).
+#   Переменные: BOT_TOKEN, API_BASE_URL
 
 services:
   postgres:
@@ -102,6 +112,23 @@ services:
       PARSER_BATCH_SIZE: ${PARSER_BATCH_SIZE:-200}
     volumes:
       - parser_data:/app/data
+    networks:
+      - app_net
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  bot:
+    build:
+      context: ../bot
+      dockerfile: Dockerfile
+    container_name: food_helper_bot
+    environment:
+      # Telegram Bot Token (обязательно)
+      BOT_TOKEN: ${BOT_TOKEN}
+      # URL API — изнутри docker-сети обращаемся к nginx (или напрямую к api)
+      API_BASE_URL: ${API_BASE_URL:-http://nginx:80}
     networks:
       - app_net
     depends_on:

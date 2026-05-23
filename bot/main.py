@@ -1,15 +1,14 @@
+import asyncio
+
+import structlog
 from aiogram import Bot, Dispatcher
 from aiogram.enums import ParseMode
 from aiogram.types import BotCommand
 from aiogram.client.default import DefaultBotProperties
-import asyncio
 
 from handlers import start, deliveries, filters, products, pagination
-
 from config import settings
 from logging_config import setup_logging
-
-import logging
 
 
 async def set_commands(bot: Bot):
@@ -23,7 +22,7 @@ async def set_commands(bot: Bot):
 
 async def main():
     setup_logging()
-    logger = logging.getLogger(__name__)
+    logger = structlog.get_logger(__name__)
 
     bot = Bot(token=settings.bot_token,
               default=DefaultBotProperties(parse_mode=ParseMode.HTML))

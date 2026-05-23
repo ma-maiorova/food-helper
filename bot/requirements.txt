@@ -4,3 +4,4 @@ aiohttp==3.13.2
 pydantic==2.12.5
 pydantic_core==2.41.5
 pydantic-settings==2.13.1
+structlog==25.3.0

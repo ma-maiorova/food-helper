@@ -196,6 +196,8 @@ def upload_products(
         "errors": [],
     }
 
+    upload_start = time.monotonic()
+
     for batch_start in range(0, len(product_list), batch_size):
         batch = product_list[batch_start: batch_start + batch_size]
         batch_num = batch_start // batch_size + 1
@@ -210,6 +212,7 @@ def upload_products(
             _product_to_api_item(p, delivery_service_code) for p in batch
         ]
 
+        batch_send_start = time.monotonic()
         try:
             result = _send_batch(
                 items=api_items,
@@ -220,10 +223,12 @@ def upload_products(
                 retry_delay=retry_delay,
             )
         except Exception as e:
-            logger.error(f"Батч {batch_num} провалился полностью: {e}")
+            elapsed = time.monotonic() - batch_send_start
+            logger.error(f"Батч {batch_num} провалился полностью за {elapsed:.1f}с: {e}")
             summary["failed"] += len(batch)
             continue
 
+        batch_elapsed = time.monotonic() - batch_send_start
         summary["batches_sent"] += 1
         summary["total_received"] += result.get("totalReceived", 0)
         summary["duplicates_resolved"] += result.get("duplicatesResolved", 0)
@@ -243,12 +248,14 @@ def upload_products(
                 else:
                     logger.warning(f"  [data error/{code}] {url}: {msg}")
 
+        total_elapsed = time.monotonic() - upload_start
         logger.info(
             f"  → создано={result.get('created', 0)}, "
             f"обновлено={result.get('updated', 0)}, "
             f"ошибок={failed_in_batch}, "
-            f"дублей сброшено={result.get('duplicatesResolved', 0)}, "
-            f"за {result.get('durationMs', '?')}мс"
+            f"дублей={result.get('duplicatesResolved', 0)}, "
+            f"батч за {batch_elapsed:.1f}с (API: {result.get('durationMs', '?')}мс), "
+            f"всего выгружено за {total_elapsed:.1f}с"
         )
 
     logger.info(

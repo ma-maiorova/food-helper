@@ -3,6 +3,7 @@ package org.example.service.model
 data class ProductSearchCriteria(
     val query: String? = null,
     val deliveryServiceIds: List<Long>? = null,
+    val source: String = "web",
 
     val minCalories: Int? = null,
     val maxCalories: Int? = null,

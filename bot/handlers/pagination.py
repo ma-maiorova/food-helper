@@ -16,11 +16,13 @@ async def pagination_handler(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     filters = data.get("filters_snapshot", {})
     active_ids = data.get("active_ids")
+    per_dish = data.get("per_dish_snapshot", False)
 
     try:
         page = await service.search_products(
             page=page_num,
             delivery_service_ids=active_ids or None,
+            per_dish=per_dish,
             **filters,
         )
     except Exception as e:

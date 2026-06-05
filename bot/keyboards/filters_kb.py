@@ -1,11 +1,13 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 
-def get_filters_kb(current_filters: dict) -> InlineKeyboardMarkup:
+def get_filters_kb(current_filters: dict, per_dish: bool = False) -> InlineKeyboardMarkup:
     def format_range(key):
         if key in current_filters:
             return f"{current_filters[key][0]}-{current_filters[key][1]}"
         return "–"
+
+    mode_label = "🍽 Режим: на блюдо" if per_dish else "📊 Режим: на 100 г"
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [
@@ -19,6 +21,9 @@ def get_filters_kb(current_filters: dict) -> InlineKeyboardMarkup:
                 text=f"Жиры: {format_range('fat')}", callback_data="set_fat"),
             InlineKeyboardButton(
                 text=f"Углеводы: {format_range('carbs')}", callback_data="set_carbs"),
+        ],
+        [
+            InlineKeyboardButton(text=mode_label, callback_data="toggle_per_dish"),
         ],
         [
             InlineKeyboardButton(

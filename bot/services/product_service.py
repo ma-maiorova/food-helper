@@ -75,11 +75,15 @@ class ProductService:
         protein: tuple[int, int] | None = None,
         fat: tuple[int, int] | None = None,
         carbs: tuple[int, int] | None = None,
+        per_dish: bool = False,
     ) -> ProductPage:
         """Ищет продукты с фильтрацией и пагинацией на стороне бэкенда."""
         url = f"{self.BASE_URL}/api/v1/products"
 
         params: dict = {"page": page, "size": size}
+
+        if per_dish:
+            params["perDish"] = "true"
 
         # API принимает deliveryServiceIds как строку вида "1,2,3"
         if delivery_service_ids:

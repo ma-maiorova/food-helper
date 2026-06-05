@@ -21,6 +21,8 @@ fun parseProductSearchCriteria(call: ApplicationCall): ProductSearchCriteria {
     val userAgent = call.request.headers["User-Agent"] ?: ""
     val source = if (userAgent.startsWith("food-helper-bot")) "bot" else "web"
 
+    val perDish = qp["perDish"]?.lowercase().let { it == "true" || it == "1" }
+
     val criteria = ProductSearchCriteria(
         query = q,
         deliveryServiceIds = deliveryServiceIds,
@@ -33,6 +35,7 @@ fun parseProductSearchCriteria(call: ApplicationCall): ProductSearchCriteria {
         maxFat = qp["maxFat"]?.toDoubleOrNull(),
         minCarbs = qp["minCarbs"]?.toDoubleOrNull(),
         maxCarbs = qp["maxCarbs"]?.toDoubleOrNull(),
+        perDish = perDish,
         page = page,
         size = size,
         sort = sort

@@ -55,11 +55,24 @@ async def input_range_handler(message, state: FSMContext):
     )
 
 
+@router.callback_query(F.data == "toggle_per_dish")
+async def toggle_per_dish_handler(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    per_dish = not data.get("per_dish", False)
+    await state.update_data(per_dish=per_dish)
+    filters = data.get("filters", {})
+    await callback.message.edit_reply_markup(
+        reply_markup=get_filters_kb(filters, per_dish)
+    )
+    await callback.answer()
+
+
 @router.callback_query(lambda c: c.data == "search_products")
 async def search_products_handler(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     filters = data.get("filters", {})
     deliveries = data.get("deliveries", {})
+    per_dish = data.get("per_dish", False)
 
     # Собираем ID только включённых служб
     active_ids = [v["id"] for v in deliveries.values() if not v["excluded"]]
@@ -68,6 +81,7 @@ async def search_products_handler(callback: CallbackQuery, state: FSMContext):
         page = await service.search_products(
             page=0,
             delivery_service_ids=active_ids or None,
+            per_dish=per_dish,
             **filters,
         )
     except Exception as e:
@@ -78,17 +92,23 @@ async def search_products_handler(callback: CallbackQuery, state: FSMContext):
     if page.total_elements == 0:
         await callback.answer("Продуктов не найдено, измените диапазоны фильтрации")
     else:
-        await state.update_data(filters_snapshot=filters, active_ids=active_ids)
+        await state.update_data(
+            filters_snapshot=filters,
+            active_ids=active_ids,
+            per_dish_snapshot=per_dish,
+        )
         await show_products(callback.message, page)
         await callback.answer()
 
 
 @router.callback_query(F.data == "clear_filters")
 async def clear_filters_handler(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    per_dish = data.get("per_dish", False)
     await state.update_data(filters={})
 
     await callback.message.edit_reply_markup(
-        reply_markup=get_filters_kb({})
+        reply_markup=get_filters_kb({}, per_dish)
     )
 
     await callback.answer()

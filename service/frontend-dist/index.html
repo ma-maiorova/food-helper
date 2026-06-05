@@ -166,16 +166,17 @@ async function apiGetServices() {
   }
 }
 
-async function apiSearch({ q, page, size, serviceIds, minCal, maxCal, minProt, maxProt, minFat, maxFat, minCarbs, maxCarbs, sort }) {
+async function apiSearch({ q, page, size, serviceIds, minCal, maxCal, minProt, maxProt, minFat, maxFat, minCarbs, maxCarbs, sort, perDish }) {
   if (CFG.USE_MOCK) {
     await delay(750);
-    return mockSearch({ q, page, size, serviceIds, minCal, maxCal, minProt, maxProt, minFat, maxFat, minCarbs, maxCarbs });
+    return mockSearch({ q, page, size, serviceIds, minCal, maxCal, minProt, maxProt, minFat, maxFat, minCarbs, maxCarbs, perDish });
   }
   const params = new URLSearchParams();
   if (q)                          params.set('q', q);
   params.set('page', page);
   params.set('size', size);
   if (serviceIds?.length)         params.set('deliveryServiceIds', serviceIds.join(','));
+  if (perDish)                    params.set('perDish', 'true');
   if (minCal > 0)                 params.set('minCalories', minCal);
   if (maxCal < 1000)              params.set('maxCalories', maxCal);
   if (minProt > 0)                params.set('minProtein',  minProt);
@@ -196,13 +197,17 @@ async function apiSearch({ q, page, size, serviceIds, minCal, maxCal, minProt, m
 function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 
-function mockSearch({ q, page, size, serviceIds, minCal, maxCal, minProt, maxProt, minFat, maxFat, minCarbs, maxCarbs }) {
+function mockSearch({ q, page, size, serviceIds, minCal, maxCal, minProt, maxProt, minFat, maxFat, minCarbs, maxCarbs, perDish }) {
   const ql = (q || '').toLowerCase();
   const filtered = MOCK_ITEMS.filter(p => {
     if (ql && !p.name.toLowerCase().includes(ql)) return false;
     if (serviceIds?.length && !serviceIds.includes(p.deliveryService.id)) return false;
     const n = p.variants[0]?.nutrients || {};
-    const cal = n.calories ?? 0, prot = n.protein ?? 0, fat = n.fat ?? 0, carbs = n.carbs ?? 0;
+    const w = p.variants[0]?.weight;
+    if (perDish && w == null) return false; // no weight — can't apply per-dish filter
+    const scale = perDish ? w / 100 : 1;
+    const cal = (n.calories ?? 0) * scale, prot = (n.protein ?? 0) * scale;
+    const fat = (n.fat ?? 0) * scale,      carbs = (n.carbs ?? 0) * scale;
     if (minCal > 0    && cal   < minCal)   return false;
     if (maxCal < 1000 && cal   > maxCal)   return false;
     if (minProt > 0   && prot  < minProt)  return false;
@@ -314,7 +319,7 @@ function RangeFilter({ label, color, value, min, max, unit, onChange }) {
 /* ═══════════════════════════════════════════════════════
    FILTER CONTENT (shared sidebar + sheet)
    ═══════════════════════════════════════════════════════ */
-function FilterContent({ filters, services, selSvcIds, onFilterChange, onSvcToggle, onReset, activeCount }) {
+function FilterContent({ filters, services, selSvcIds, onFilterChange, onSvcToggle, onReset, activeCount, perDish, onPerDishToggle }) {
   const RANGES = [
     { key:'prot',  label:'Белки',     color:'protein', min:0, max:100,  unit:'г'   },
     { key:'fat',   label:'Жиры',      color:'fat',     min:0, max:100,  unit:'г'   },
@@ -367,10 +372,24 @@ function FilterContent({ filters, services, selSvcIds, onFilterChange, onSvcTogg
         </div>
       )}
 
-      {/* Note */}
-      <p style={{ fontSize:11, color:'var(--text-2)', marginBottom:16 }}>
-        Значения КБЖУ на 100 г продукта
-      </p>
+      {/* Per-dish toggle */}
+      <div style={{ marginBottom:16, display:'flex', gap:6 }}>
+        {[
+          { label:'На 100 г', value:false },
+          { label:'На блюдо', value:true },
+        ].map(opt => (
+          <button key={String(opt.value)} onClick={() => opt.value !== perDish && onPerDishToggle()}
+            style={{
+              padding:'5px 14px', borderRadius:20, fontSize:12, fontWeight:600,
+              border:`1px solid ${perDish === opt.value ? 'var(--accent)' : 'var(--border)'}`,
+              background: perDish === opt.value ? 'var(--accent-lt)' : 'var(--surface)',
+              color: perDish === opt.value ? 'var(--accent)' : 'var(--text-2)',
+              cursor: perDish === opt.value ? 'default' : 'pointer', transition:'all .15s',
+            }}>
+            {opt.label}
+          </button>
+        ))}
+      </div>
 
       {/* Range sliders */}
       {RANGES.map(r => (
@@ -916,6 +935,8 @@ function App() {
 
   // Filters
   const [filters,      setFilters]      = useState(DEFAULT_FILTERS);
+  const [perDish,      setPerDish]      = useState(false);
+  const perDishRef = useRef(false); // ref so doSearch closure always reads current value
   const [services,     setServices]     = useState([]);
   const [selSvcIds,    setSelSvcIds]    = useState([]); // [] = all selected
 
@@ -982,6 +1003,7 @@ function App() {
       const res = await apiSearch({
         q, page: p, size: CFG.PAGE_SIZE, sort: sortVal,
         serviceIds: effectiveSvcIds,
+        perDish: perDishRef.current,
         minCal:  f.cal[0],  maxCal:  f.cal[1],
         minProt: f.prot[0], maxProt: f.prot[1],
         minFat:  f.fat[0],  maxFat:  f.fat[1],
@@ -1050,6 +1072,13 @@ function App() {
     setFilters(DEFAULT_FILTERS);
     setSelSvcIds([]);
     if (appState !== 'home') doSearch(inputQ, DEFAULT_FILTERS, [], sort, 0);
+  };
+
+  const handlePerDishToggle = () => {
+    const newPD = !perDishRef.current;
+    perDishRef.current = newPD;
+    setPerDish(newPD);
+    if (appState !== 'home') doSearch(inputQ, filters, selSvcIds, sort, 0);
   };
 
   const handlePage = (p) => {
@@ -1171,9 +1200,23 @@ function App() {
                 borderRadius:'var(--r)', padding:20,
                 boxShadow:'var(--sh-md)', textAlign:'left',
               }}>
-                <p style={{ fontSize:11, color:'var(--text-2)', marginBottom:16 }}>
-                  Все значения — на 100 г продукта
-                </p>
+                <div style={{ display:'flex', gap:6, marginBottom:16 }}>
+                  {[
+                    { label:'На 100 г', value:false },
+                    { label:'На блюдо', value:true },
+                  ].map(opt => (
+                    <button key={String(opt.value)} onClick={() => opt.value !== perDish && handlePerDishToggle()}
+                      style={{
+                        padding:'5px 14px', borderRadius:20, fontSize:12, fontWeight:600,
+                        border:`1px solid ${perDish === opt.value ? 'var(--accent)' : 'var(--border)'}`,
+                        background: perDish === opt.value ? 'var(--accent-lt)' : 'var(--surface)',
+                        color: perDish === opt.value ? 'var(--accent)' : 'var(--text-2)',
+                        cursor: perDish === opt.value ? 'default' : 'pointer', transition:'all .15s',
+                      }}>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
                 <div style={{
                   display:'grid',
                   gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
@@ -1244,7 +1287,9 @@ function App() {
                   onFilterChange={handleFilterChange}
                   onSvcToggle={handleSvcToggle}
                   onReset={handleReset}
-                  activeCount={activeFltCount}/>
+                  activeCount={activeFltCount}
+                  perDish={perDish}
+                  onPerDishToggle={handlePerDishToggle}/>
               </div>
               <div style={{ marginTop:12 }}>
                 <CartPanel items={cart} onRemove={handleCartRemove} onOpen={setSelected} onClear={handleCartClear}/>
@@ -1353,7 +1398,8 @@ function App() {
             onFilterChange={handleFilterChange}
             onSvcToggle={handleSvcToggle}
             onReset={handleReset}
-            activeCount={activeFltCount}/>
+            activeCount={activeFltCount}
+            perDish={perDish} onPerDishToggle={handlePerDishToggle}/>
           <button onClick={() => setShowFltSheet(false)}
             style={{ width:'100%', marginTop:20, padding:14,
               background:'var(--accent)', color:'#fff', border:'none',

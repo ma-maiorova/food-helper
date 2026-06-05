@@ -13,6 +13,10 @@ data class ProductSearchCriteria(
     val minCarbs: Double? = null,
     val maxCarbs: Double? = null,
 
+    /** When true, nutrient filters are applied to the whole dish (value × weight / 100)
+     *  instead of per 100 g. Variants without weight are excluded from results. */
+    val perDish: Boolean = false,
+
     val page: Int = 0,
     val size: Int = 20,
     val sort: SortSpec? = null

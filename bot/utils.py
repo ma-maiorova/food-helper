@@ -1,4 +1,15 @@
-from services.models import ProductItem
+from services.models import ProductItem, ProductVariant
+
+
+def _fmt_variant(v: ProductVariant) -> str:
+    weight_str = f"⚖️ {v.weight} г  " if v.weight else ""
+    return (
+        f"{weight_str}"
+        f"К: {v.nutrients.calories}  "
+        f"Б: {v.nutrients.protein}  "
+        f"Ж: {v.nutrients.fat}  "
+        f"У: {v.nutrients.carbs}"
+    )
 
 
 def format_products_text(products: list[ProductItem]) -> str:
@@ -8,20 +19,13 @@ def format_products_text(products: list[ProductItem]) -> str:
         f"<b>{item.name}</b>\n"
         f"💰 Цена: {item.price}₽\n"
         f"🚚 {item.delivery_service.name}\n"
-        f"<b>КБЖУ</b>\n"
+        f"<b>КБЖУ (на 100 г)</b>\n"
         + (
-            f"К: {item.variants[0].nutrients.calories}\n"
-            f"Б: {item.variants[0].nutrients.protein}\n"
-            f"Ж: {item.variants[0].nutrients.fat}\n"
-            f"У: {item.variants[0].nutrients.carbs}"
+            _fmt_variant(item.variants[0])
             if len(item.variants) == 1
-
             else "\n".join([
                 f"{i}) {variant.manufacturer or 'Без указания производителя'}\n"
-                f"К: {variant.nutrients.calories}, "
-                f"Б: {variant.nutrients.protein}, "
-                f"Ж: {variant.nutrients.fat}, "
-                f"У: {variant.nutrients.carbs}"
+                + _fmt_variant(variant)
                 for i, variant in enumerate(item.variants, 1)
             ])
         ) +

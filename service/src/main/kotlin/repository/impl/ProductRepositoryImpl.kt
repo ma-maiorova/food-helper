@@ -14,6 +14,7 @@ import org.jetbrains.exposed.sql.SqlExpressionBuilder.inSubQuery
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.greaterEq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.lessEq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.isNotNull
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.like
 import java.time.Instant
 
@@ -21,6 +22,25 @@ object ProductRepositoryImpl : ProductRepository {
 
     /** При поиске по q результаты ранжируются в памяти; учитывается не более N записей. */
     private const val MAX_SEARCH_RESULTS_FOR_RANKING = 2000
+
+    /**
+     * SQL expression: (col * weight / 100.0) — scales a per-100g nutrient to the whole dish.
+     * Produces a DOUBLE PRECISION result in SQL; NULL when either operand is NULL.
+     */
+    private class ScaledExpr(
+        private val col: ExpressionWithColumnType<*>,
+        private val weight: Column<Int?>,
+    ) : ExpressionWithColumnType<Double?>() {
+        override val columnType: IColumnType<Double> = DoubleColumnType()
+
+        override fun toQueryBuilder(queryBuilder: QueryBuilder) {
+            queryBuilder.append("(")
+            col.toQueryBuilder(queryBuilder)
+            queryBuilder.append(" * ")
+            weight.toQueryBuilder(queryBuilder)
+            queryBuilder.append(" / 100.0)")
+        }
+    }
 
     override suspend fun findById(id: Long): Product? =
         DatabaseFactory.dbQuery {
@@ -265,17 +285,31 @@ object ProductRepositoryImpl : ProductRepository {
     private fun buildVariantNutrientsOnlyWhere(criteria: ProductSearchCriteria): Op<Boolean> {
         val conds = mutableListOf<Op<Boolean>>()
 
-        criteria.minCalories?.let { conds += ProductVariantsTable.calories greaterEq it }
-        criteria.maxCalories?.let { conds += ProductVariantsTable.calories lessEq it }
+        if (criteria.perDish) {
+            val w = ProductVariantsTable.weight
+            // variants without weight cannot be scaled — exclude them
+            conds += w.isNotNull()
 
-        criteria.minProtein?.let { conds += ProductVariantsTable.protein greaterEq it }
-        criteria.maxProtein?.let { conds += ProductVariantsTable.protein lessEq it }
+            fun scaled(col: ExpressionWithColumnType<*>) = ScaledExpr(col, w)
 
-        criteria.minFat?.let { conds += ProductVariantsTable.fat greaterEq it }
-        criteria.maxFat?.let { conds += ProductVariantsTable.fat lessEq it }
-
-        criteria.minCarbs?.let { conds += ProductVariantsTable.carbs greaterEq it }
-        criteria.maxCarbs?.let { conds += ProductVariantsTable.carbs lessEq it }
+            criteria.minCalories?.let { conds += scaled(ProductVariantsTable.calories) greaterEq it.toDouble() }
+            criteria.maxCalories?.let { conds += scaled(ProductVariantsTable.calories) lessEq it.toDouble() }
+            criteria.minProtein?.let  { conds += scaled(ProductVariantsTable.protein)  greaterEq it }
+            criteria.maxProtein?.let  { conds += scaled(ProductVariantsTable.protein)  lessEq it }
+            criteria.minFat?.let      { conds += scaled(ProductVariantsTable.fat)       greaterEq it }
+            criteria.maxFat?.let      { conds += scaled(ProductVariantsTable.fat)       lessEq it }
+            criteria.minCarbs?.let    { conds += scaled(ProductVariantsTable.carbs)     greaterEq it }
+            criteria.maxCarbs?.let    { conds += scaled(ProductVariantsTable.carbs)     lessEq it }
+        } else {
+            criteria.minCalories?.let { conds += ProductVariantsTable.calories greaterEq it }
+            criteria.maxCalories?.let { conds += ProductVariantsTable.calories lessEq it }
+            criteria.minProtein?.let  { conds += ProductVariantsTable.protein  greaterEq it }
+            criteria.maxProtein?.let  { conds += ProductVariantsTable.protein  lessEq it }
+            criteria.minFat?.let      { conds += ProductVariantsTable.fat      greaterEq it }
+            criteria.maxFat?.let      { conds += ProductVariantsTable.fat      lessEq it }
+            criteria.minCarbs?.let    { conds += ProductVariantsTable.carbs    greaterEq it }
+            criteria.maxCarbs?.let    { conds += ProductVariantsTable.carbs    lessEq it }
+        }
 
         return andAll(conds)
     }

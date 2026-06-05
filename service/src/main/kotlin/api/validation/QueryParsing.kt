@@ -18,6 +18,8 @@ fun parseProductSearchCriteria(call: ApplicationCall): ProductSearchCriteria {
 
     val sort = qp["sort"]?.let { parseSort(it) }
 
+    val perDish = qp["perDish"]?.lowercase().let { it == "true" || it == "1" }
+
     val criteria = ProductSearchCriteria(
         query = q,
         deliveryServiceIds = deliveryServiceIds,
@@ -29,6 +31,7 @@ fun parseProductSearchCriteria(call: ApplicationCall): ProductSearchCriteria {
         maxFat = qp["maxFat"]?.toDoubleOrNull(),
         minCarbs = qp["minCarbs"]?.toDoubleOrNull(),
         maxCarbs = qp["maxCarbs"]?.toDoubleOrNull(),
+        perDish = perDish,
         page = page,
         size = size,
         sort = sort

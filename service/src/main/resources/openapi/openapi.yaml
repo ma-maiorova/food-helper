@@ -738,6 +738,17 @@ paths:
           schema:
             type: string
             example: "name,asc"
+        - name: perDish
+          in: query
+          required: false
+          description: |
+            Режим применения КБЖУ-фильтров.
+            - `false` (по умолчанию) — фильтры применяются к значениям **на 100 г**.
+            - `true` — фильтры применяются к значениям **на всё блюдо** (`value × weight / 100`).
+              Варианты без указанного веса не проходят фильтр.
+          schema:
+            type: boolean
+            default: false
         - name: minCalories
           in: query
           required: false

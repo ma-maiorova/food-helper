@@ -43,7 +43,7 @@
       "title": "HTTP 4xx / 5xx (rate/min)",
       "type": "stat",
       "options": { "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] } },
-      "fieldConfig": { "defaults": { "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 0.1 }, { "color": "red", "value": 1 }] } } },
+      "fieldConfig": { "defaults": { "noValue": "0", "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 0.1 }, { "color": "red", "value": 1 }] } } },
       "targets": [
         { "expr": "sum(rate(ktor_http_server_requests_seconds_count{status=~\"4..\"}[1m]))", "legendFormat": "4xx" },
         { "expr": "sum(rate(ktor_http_server_requests_seconds_count{status=~\"5..\"}[1m]))", "legendFormat": "5xx" }
@@ -101,7 +101,7 @@
       "title": "HTTP 4xx/5xx по маршрутам",
       "type": "timeseries",
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
-      "fieldConfig": { "defaults": { "custom": { "lineWidth": 2, "drawStyle": "line" }, "unit": "reqps" } },
+      "fieldConfig": { "defaults": { "noValue": "0", "custom": { "lineWidth": 2, "drawStyle": "line" }, "unit": "reqps" } },
       "targets": [
         { "expr": "sum by (route, status) (rate(ktor_http_server_requests_seconds_count{status=~\"[45]..\"}[5m]))", "legendFormat": "{{status}} {{route}}" }
       ]
@@ -151,7 +151,7 @@
       "type": "timeseries",
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
       "fieldConfig": {
-        "defaults": { "custom": { "lineWidth": 2, "drawStyle": "bars", "fillOpacity": 60 }, "unit": "reqps" },
+        "defaults": { "noValue": "0", "custom": { "lineWidth": 2, "drawStyle": "bars", "fillOpacity": 60 }, "unit": "reqps" },
         "overrides": [
           { "matcher": { "id": "byRegexp", "options": "5xx.*" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] },
           { "matcher": { "id": "byRegexp", "options": "4xx.*" }, "properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }
@@ -311,6 +311,107 @@
       "fieldConfig": { "defaults": { "unit": "short" } },
       "targets": [
         { "expr": "sum by (delivery_service, error_code) (increase(product_import_failed_items_total[$__range]))", "legendFormat": "{{delivery_service}} / {{error_code}}", "instant": true }
+      ]
+    },
+
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 68 }, "id": 40, "title": "Использование", "type": "row" },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus-food-helper" },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 69 },
+      "id": 41,
+      "title": "Поисков всего (за период)",
+      "type": "stat",
+      "options": { "colorMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "0",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "text", "value": null }] }
+        }
+      },
+      "targets": [
+        { "expr": "sum(increase(product_search_requests_total[$__range]))", "legendFormat": "total" }
+      ]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus-food-helper" },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 69 },
+      "id": 42,
+      "title": "Импортировано товаров (за период)",
+      "type": "stat",
+      "options": { "colorMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "0",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "text", "value": null }] }
+        }
+      },
+      "targets": [
+        { "expr": "sum(increase(product_import_created_items_total[$__range])) + sum(increase(product_import_updated_items_total[$__range]))", "legendFormat": "imported" }
+      ]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus-food-helper" },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 69 },
+      "id": 44,
+      "title": "Поисков с бота (за период)",
+      "type": "stat",
+      "options": { "colorMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "0",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "text", "value": null }] }
+        }
+      },
+      "targets": [
+        { "expr": "sum(increase(product_search_requests_total{source=\"bot\"}[$__range]))", "legendFormat": "bot" }
+      ]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus-food-helper" },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 69 },
+      "id": 45,
+      "title": "Поисков с web (за период)",
+      "type": "stat",
+      "options": { "colorMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "0",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "text", "value": null }] }
+        }
+      },
+      "targets": [
+        { "expr": "sum(increase(product_search_requests_total{source=\"web\"}[$__range]))", "legendFormat": "web" }
+      ]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus-food-helper" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 73 },
+      "id": 43,
+      "title": "Поиски: bot vs web (rate/min)",
+      "type": "timeseries",
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "fieldConfig": {
+        "defaults": { "custom": { "lineWidth": 2, "fillOpacity": 15, "drawStyle": "line" }, "unit": "reqps" },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "bot" }, "properties": [{ "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "web" }, "properties": [{ "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }
+        ]
+      },
+      "targets": [
+        { "expr": "sum by (source) (rate(product_search_requests_total[1m]))", "legendFormat": "{{source}}" }
       ]
     }
 

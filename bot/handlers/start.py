@@ -16,11 +16,15 @@ async def cmd_start(msg: types.Message):
 
 
 @router.message(F.text == "/help")
-async def cmd_help(msg: types.Message):
+async def cmd_help(msg: types.Message, state: FSMContext):
+    await state.clear()
     await msg.answer(
-        "<b>Привет!</b> Я помогу подобрать еду, отфильтрованную по КБЖУ.\n"
-        "Выбери параметр фильтра:",
-        reply_markup=get_filters_kb(current_filters={})
+        "<b>Как пользоваться ботом:</b>\n\n"
+        "1. Настрой фильтры КБЖУ — /filters\n"
+        "2. Выбери сервис доставки — /delivery\n"
+        "3. Нажми 🔍 Поиск\n\n"
+        "Фильтры задаются диапазоном, например <code>100-400</code>.\n"
+        "Режим «на блюдо» считает КБЖУ для всей порции, «на 100 г» — удельно."
     )
 
 

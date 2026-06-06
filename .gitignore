@@ -83,3 +83,4 @@ service/src/main/resources/application-local.conf
 **/build/
 **/.idea/
 *.iml
+*__pycache__

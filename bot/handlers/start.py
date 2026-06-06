@@ -15,6 +15,15 @@ async def cmd_start(msg: types.Message):
     )
 
 
+@router.message(F.text == "/help")
+async def cmd_help(msg: types.Message):
+    await msg.answer(
+        "<b>Привет!</b> Я помогу подобрать еду, отфильтрованную по КБЖУ.\n"
+        "Выбери параметр фильтра:",
+        reply_markup=get_filters_kb(current_filters={})
+    )
+
+
 @router.message(F.text == "/filters")
 async def cmd_filters(msg: types.Message, filters={}):
     await msg.answer("Выберите параметры фильтра:",
